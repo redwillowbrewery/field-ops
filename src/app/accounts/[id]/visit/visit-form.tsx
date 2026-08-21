@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { logVisit, type LogVisitState } from "./actions";
 
 const initialState: LogVisitState = {};
@@ -9,6 +9,8 @@ type Contact = { id: string; full_name: string | null; is_primary: boolean | nul
 
 export function VisitForm({ accountId, contacts }: { accountId: string; contacts: Contact[] }) {
   const [state, action, pending] = useActionState(logVisit, initialState);
+  const [contactChoice, setContactChoice] = useState("");
+  const addingContact = contactChoice === "__new__";
 
   return (
     <form action={action} className="space-y-5">
@@ -16,30 +18,49 @@ export function VisitForm({ accountId, contacts }: { accountId: string; contacts
 
       <div>
         <label className="mb-2 block text-sm font-semibold text-slate-800">Who did you meet?</label>
-        <select name="contact_id" defaultValue="" className="h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base outline-none focus:border-slate-600">
+        <select name="contact_id" value={contactChoice} onChange={(event) => setContactChoice(event.target.value)} className="h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base outline-none focus:border-slate-600">
           <option value="">No contact selected</option>
           {contacts.map((contact) => (
             <option key={contact.id} value={contact.id}>
               {contact.full_name || "Unnamed contact"}{contact.is_primary ? " (Primary)" : ""}
             </option>
           ))}
+          <option value="__new__">+ Add new contact</option>
         </select>
       </div>
+
+      {addingContact && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <h2 className="font-semibold text-slate-900">New contact</h2>
+          <p className="mt-1 text-sm text-slate-500">Saved to this account as a Field Ops contact.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</label>
+              <input name="new_contact_name" required={addingContact} className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600" placeholder="e.g. Sarah Jones" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Role</label>
+              <input name="new_contact_role" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600" placeholder="e.g. General Manager" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</label>
+              <input name="new_contact_phone" type="tel" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</label>
+              <input name="new_contact_email" type="email" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <fieldset>
         <legend className="mb-2 text-sm font-semibold text-slate-800">Outcome</legend>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            ["good", "Good"],
-            ["neutral", "Neutral"],
-            ["problem", "Problem"],
-            ["opportunity", "Opportunity"],
-          ].map(([value, label]) => (
+          {[["good", "Good"],["neutral", "Neutral"],["problem", "Problem"],["opportunity", "Opportunity"]].map(([value, label]) => (
             <label key={value} className="cursor-pointer">
               <input type="radio" name="outcome" value={value} defaultChecked={value === "neutral"} className="peer sr-only" />
-              <span className="flex h-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 peer-checked:border-slate-950 peer-checked:bg-slate-950 peer-checked:text-white">
-                {label}
-              </span>
+              <span className="flex h-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 peer-checked:border-slate-950 peer-checked:bg-slate-950 peer-checked:text-white">{label}</span>
             </label>
           ))}
         </div>
@@ -53,27 +74,16 @@ export function VisitForm({ accountId, contacts }: { accountId: string; contacts
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <h2 className="font-semibold text-slate-900">Follow-up</h2>
         <p className="mt-1 text-sm text-slate-500">Optional — create the next action while the visit is fresh.</p>
-
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Action</label>
-            <select name="task_type" defaultValue="" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600">
-              <option value="">No follow-up</option>
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="quote">Send quote</option>
-              <option value="samples">Send samples</option>
-              <option value="revisit">Revisit</option>
-              <option value="order">Order</option>
-              <option value="other">Other</option>
-            </select>
+            <select name="task_type" defaultValue="" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600"><option value="">No follow-up</option><option value="call">Call</option><option value="email">Email</option><option value="quote">Send quote</option><option value="samples">Send samples</option><option value="revisit">Revisit</option><option value="order">Order</option><option value="other">Other</option></select>
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Due date</label>
             <input type="date" name="due_date" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600" />
           </div>
         </div>
-
         <div className="mt-3">
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Follow-up note</label>
           <input name="task_title" placeholder="e.g. Send September cask availability" className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-600" />
@@ -81,10 +91,7 @@ export function VisitForm({ accountId, contacts }: { accountId: string; contacts
       </div>
 
       {state.error ? <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{state.error}</p> : null}
-
-      <button type="submit" disabled={pending} className="h-12 w-full rounded-xl bg-slate-950 px-4 text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-60">
-        {pending ? "Saving visit…" : "Complete visit"}
-      </button>
+      <button type="submit" disabled={pending} className="h-12 w-full rounded-xl bg-slate-950 px-4 text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-60">{pending ? "Saving visit…" : "Complete visit"}</button>
     </form>
   );
 }
