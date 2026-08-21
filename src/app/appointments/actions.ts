@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
-export type AppointmentState = { error?: string };
+export type AppointmentState = { error?: string; redirectTo?: string };
 
 export async function createAppointment(_prev: AppointmentState, formData: FormData): Promise<AppointmentState> {
   const accountId = String(formData.get("account_id") ?? "");
@@ -41,7 +41,7 @@ export async function createAppointment(_prev: AppointmentState, formData: FormD
   revalidatePath("/today");
   revalidatePath("/diary");
   revalidatePath(`/accounts/${accountId}`);
-  redirect(`/appointments/${data.id}`);
+  return { redirectTo: `/appointments/${data.id}` };
 }
 
 export async function updateAppointment(_prev: AppointmentState, formData: FormData): Promise<AppointmentState> {
