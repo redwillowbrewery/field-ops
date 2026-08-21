@@ -54,7 +54,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
               <p className="mt-1 text-sm text-slate-500">{[account.classification, account.town, account.postcode].filter(Boolean).join(" · ")}</p>
             </div>
             <div className="flex gap-2">
-              <button disabled className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-400">Add follow-up</button>
+              <Link href={`/accounts/${account.id}/contacts`} className="inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Manage contacts</Link>
               <Link href={`/accounts/${account.id}/visit`} className="inline-flex h-10 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">Log visit</Link>
             </div>
           </div>
@@ -85,6 +85,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                           <p className="font-semibold">{contact.full_name || "Unnamed contact"}</p>
                           {contact.is_primary && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Primary</span>}
                         </div>
+                        {contact.job_title && <p className="mt-1 text-sm text-slate-500">{contact.job_title}</p>}
                         {contact.email && <a href={`mailto:${contact.email}`} className="mt-1 block text-sm text-slate-600 hover:underline">{contact.email}</a>}
                         {contact.phone && <a href={`tel:${contact.phone}`} className="mt-0.5 block text-sm text-slate-600 hover:underline">{contact.phone}</a>}
                       </div>
