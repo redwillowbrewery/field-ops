@@ -16,6 +16,20 @@ type AccountPoint = {
   overdue_follow_up: boolean;
 };
 
+type AppointmentPoint = {
+  id: string;
+  starts_at: string;
+  purpose: string | null;
+  account: {
+    id: string;
+    name: string;
+    town: string | null;
+    postcode: string | null;
+    latitude: number;
+    longitude: number;
+  };
+};
+
 type UserLocation = { latitude: number; longitude: number } | null;
 
 declare global {
@@ -32,10 +46,11 @@ const STATUS_COLOURS: Record<string, string> = {
   closed: "#be123c",
 };
 
-export function MapView({ accounts }: { accounts: AccountPoint[] }) {
+export function MapView({ accounts, appointments }: { accounts: AccountPoint[]; appointments: AppointmentPoint[] }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
+  const appointmentLayerRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
@@ -63,12 +78,13 @@ export function MapView({ accounts }: { accounts: AccountPoint[] }) {
     loadLeaflet().then(() => {
       if (cancelled || !mapEl.current || !window.L || mapRef.current) return;
       const L = window.L;
-      const map = L.map(mapEl.current, { zoomControl: true }).setView([53.2, -2.2], 8);
+      const map = L.map(mapEl.current, { zoomControl: true, tap: true }).setView([53.2, -2.2], 8);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
       layerRef.current = L.layerGroup().addTo(map);
+      appointmentLayerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
       setReady(true);
       window.setTimeout(() => map.invalidateSize(), 0);
@@ -86,13 +102,13 @@ export function MapView({ accounts }: { accounts: AccountPoint[] }) {
       const status = account.relationship_status || "dormant";
       const colour = STATUS_COLOURS[status] || STATUS_COLOURS.dormant;
       const marker = L.circleMarker([account.latitude, account.longitude], {
-        radius: account.overdue_follow_up ? 8 : 6,
-        color: colour,
+        radius: account.overdue_follow_up ? 12 : 10,
+        color: "#ffffff",
         fillColor: colour,
-        fillOpacity: account.overdue_follow_up ? 0.95 : 0.72,
-        weight: account.overdue_follow_up ? 3 : 2,
+        fillOpacity: 0.96,
+        weight: 3,
       });
-      marker.bindPopup(`<div style="min-width:180px"><strong>${escapeHtml(account.name)}</strong><br><span>${escapeHtml([account.town, account.postcode].filter(Boolean).join(" · "))}</span><br><span style="text-transform:capitalize">${escapeHtml(status)}</span>${account.overdue_follow_up ? " · <strong>follow-up overdue</strong>" : ""}<br><a href="/accounts/${account.id}">Open account →</a></div>`);
+      marker.bindPopup(`<div style="min-width:210px;padding:2px"><strong style="font-size:14px">${escapeHtml(account.name)}</strong><br><span>${escapeHtml([account.town, account.postcode].filter(Boolean).join(" · "))}</span><br><span style="text-transform:capitalize">${escapeHtml(status)}</span>${account.overdue_follow_up ? " · <strong>follow-up overdue</strong>" : ""}<br><a style="display:inline-block;margin-top:8px;font-weight:700" href="/accounts/${account.id}">Open account →</a></div>`);
       marker.addTo(layerRef.current);
       bounds.push([account.latitude, account.longitude]);
     }
@@ -103,13 +119,30 @@ export function MapView({ accounts }: { accounts: AccountPoint[] }) {
   }, [ready, filtered, userLocation]);
 
   useEffect(() => {
+    if (!ready || !appointmentLayerRef.current || !window.L) return;
+    const L = window.L;
+    appointmentLayerRef.current.clearLayers();
+    for (const appointment of appointments) {
+      const marker = L.circleMarker([appointment.account.latitude, appointment.account.longitude], {
+        radius: 14,
+        color: "#111827",
+        fillColor: "#ffffff",
+        fillOpacity: 1,
+        weight: 4,
+      });
+      marker.bindTooltip(formatTime(appointment.starts_at), { permanent: true, direction: "top", offset: [0, -12], className: "fieldops-appointment-label" });
+      marker.bindPopup(`<div style="min-width:210px"><strong>${escapeHtml(appointment.account.name)}</strong><br>${escapeHtml(formatTime(appointment.starts_at))} · ${escapeHtml(appointment.purpose || "Appointment")}<br><a style="display:inline-block;margin-top:8px;font-weight:700" href="/appointments/${appointment.id}">Open appointment →</a></div>`);
+      marker.addTo(appointmentLayerRef.current);
+    }
+  }, [ready, appointments]);
+
+  useEffect(() => {
     if (!ready || !mapRef.current || !window.L || !userLocation) return;
     const L = window.L;
     if (userMarkerRef.current) userMarkerRef.current.remove();
     userMarkerRef.current = L.circleMarker([userLocation.latitude, userLocation.longitude], {
-      radius: 9, color: "#111827", fillColor: "#ffffff", fillOpacity: 1, weight: 4,
+      radius: 10, color: "#111827", fillColor: "#ffffff", fillOpacity: 1, weight: 4,
     }).addTo(mapRef.current).bindPopup("You are here");
-    mapRef.current.setView([userLocation.latitude, userLocation.longitude], 12);
   }, [ready, userLocation]);
 
   function toggleStatus(status: string) {
@@ -124,18 +157,39 @@ export function MapView({ accounts }: { accounts: AccountPoint[] }) {
     setLocationError(null);
     if (!navigator.geolocation) { setLocationError("Location is not available on this device."); return; }
     navigator.geolocation.getCurrentPosition(
-      (position) => setUserLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+      (position) => {
+        const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        setUserLocation(next);
+        mapRef.current?.setView([next.latitude, next.longitude], 12);
+      },
       () => setLocationError("Couldn’t get your location. Check browser location permission."),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
+  }
+
+  function centreAppointments() {
+    if (!mapRef.current || !window.L || !appointments.length) return;
+    const bounds = appointments.map((appointment) => [appointment.account.latitude, appointment.account.longitude]);
+    if (bounds.length === 1) mapRef.current.setView(bounds[0], 12);
+    else mapRef.current.fitBounds(bounds, { padding: [36, 36], maxZoom: 12 });
+  }
+
+  function centreAccounts() {
+    if (!mapRef.current || !window.L || !filtered.length) return;
+    const bounds = filtered.map((account) => [account.latitude, account.longitude]);
+    mapRef.current.fitBounds(bounds, { padding: [24, 24], maxZoom: 11 });
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><p className="font-semibold">{filtered.length} mapped accounts</p><p className="text-sm text-slate-500">Tap a colour to include or hide that status.</p></div>
-          <button type="button" onClick={locateMe} className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white">Use my location</button>
+          <div><p className="font-semibold">{filtered.length} mapped accounts</p><p className="text-sm text-slate-500">Large pins are easier to tap; today’s appointments have a time label.</p></div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={locateMe} className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white">My location</button>
+            <button type="button" onClick={centreAppointments} disabled={!appointments.length} className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 disabled:opacity-40">Today’s appointments</button>
+            <button type="button" onClick={centreAccounts} className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700">All accounts</button>
+          </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {STATUSES.map((status) => {
@@ -154,7 +208,7 @@ export function MapView({ accounts }: { accounts: AccountPoint[] }) {
 
         <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-semibold">Nearby</h2>
-          {!userLocation ? <div className="mt-3 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Tap <strong>Use my location</strong> to see the nearest accounts.</div> : nearby.length ? <div className="mt-3 divide-y divide-slate-100">{nearby.map((account) => <Link key={account.id} href={`/accounts/${account.id}`} className="block py-3 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLOURS[account.relationship_status || "dormant"] }} /><p className="truncate font-semibold text-slate-800">{account.name}</p></div><p className="mt-1 text-xs text-slate-500">{[account.town, account.postcode, account.classification].filter(Boolean).join(" · ")}</p>{account.overdue_follow_up && <p className="mt-1 text-xs font-semibold text-rose-600">Follow-up overdue</p>}</div><span className="shrink-0 text-sm font-semibold text-slate-600">{account.distance_km < 1 ? `${Math.round(account.distance_km * 1000)}m` : `${account.distance_km.toFixed(1)}km`}</span></div></Link>)}</div> : <p className="mt-3 text-sm text-slate-500">No accounts match the current filters.</p>}
+          {!userLocation ? <div className="mt-3 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Tap <strong>My location</strong> to see the nearest accounts.</div> : nearby.length ? <div className="mt-3 divide-y divide-slate-100">{nearby.map((account) => <Link key={account.id} href={`/accounts/${account.id}`} className="block py-3 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLOURS[account.relationship_status || "dormant"] }} /><p className="truncate font-semibold text-slate-800">{account.name}</p></div><p className="mt-1 text-xs text-slate-500">{[account.town, account.postcode, account.classification].filter(Boolean).join(" · ")}</p>{account.overdue_follow_up && <p className="mt-1 text-xs font-semibold text-rose-600">Follow-up overdue</p>}</div><span className="shrink-0 text-sm font-semibold text-slate-600">{account.distance_km < 1 ? `${Math.round(account.distance_km * 1000)}m` : `${account.distance_km.toFixed(1)}km`}</span></div></Link>)}</div> : <p className="mt-3 text-sm text-slate-500">No accounts match the current filters.</p>}
         </aside>
       </div>
 
@@ -193,4 +247,5 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return 2 * r * Math.asin(Math.sqrt(a));
 }
 function toRad(value: number) { return value * Math.PI / 180; }
+function formatTime(value: string) { return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
 function escapeHtml(value: string) { return value.replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char] || char)); }
