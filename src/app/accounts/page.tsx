@@ -15,7 +15,7 @@ export default async function AccountsPage({
   const classification = params.classification || "";
   const territory = params.territory || "";
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   let query = supabase
     .from("accounts")
@@ -69,12 +69,7 @@ export default async function AccountsPage({
               <svg className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
               </svg>
-              <input
-                name="q"
-                defaultValue={q}
-                placeholder="Search name, town or postcode"
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none ring-0 transition focus:border-slate-500"
-              />
+              <input name="q" defaultValue={q} placeholder="Search name, town or postcode" className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none ring-0 transition focus:border-slate-500" />
             </label>
 
             <FilterSelect name="status" defaultValue={status} label="All statuses" options={RELATIONSHIP_STATUSES} />
@@ -104,24 +99,16 @@ export default async function AccountsPage({
             const sales = Array.isArray(account.sales) ? account.sales[0] : account.sales;
             const territoryName = Array.isArray(account.territory) ? account.territory[0]?.name : account.territory?.name;
             return (
-              <Link
-                key={account.id}
-                href={`/accounts/${account.id}`}
-                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md"
-              >
+              <Link key={account.id} href={`/accounts/${account.id}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="truncate text-base font-semibold sm:text-lg">{account.name}</h2>
                       <StatusBadge status={account.relationship_status} />
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {[account.town, account.postcode].filter(Boolean).join(" · ") || "No address location"}
-                    </p>
+                    <p className="mt-1 text-sm text-slate-600">{[account.town, account.postcode].filter(Boolean).join(" · ") || "No address location"}</p>
                   </div>
-                  <svg className="mt-1 h-5 w-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
+                  <svg className="mt-1 h-5 w-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
@@ -149,41 +136,14 @@ export default async function AccountsPage({
 }
 
 function FilterSelect({ name, defaultValue, label, options }: { name: string; defaultValue: string; label: string; options: string[] }) {
-  return (
-    <select name={name} defaultValue={defaultValue} className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-500">
-      <option value="">{label}</option>
-      {options.map((option) => <option key={option} value={option}>{titleCase(option)}</option>)}
-    </select>
-  );
+  return <select name={name} defaultValue={defaultValue} className="h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-slate-500"><option value="">{label}</option>{options.map((option) => <option key={option} value={option}>{titleCase(option)}</option>)}</select>;
 }
-
 function StatusBadge({ status }: { status: string | null }) {
-  const styles: Record<string, string> = {
-    current: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    cooling: "bg-amber-50 text-amber-700 ring-amber-600/20",
-    lapsed: "bg-orange-50 text-orange-700 ring-orange-600/20",
-    dormant: "bg-slate-100 text-slate-600 ring-slate-500/20",
-    prospect: "bg-blue-50 text-blue-700 ring-blue-600/20",
-    closed: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  };
+  const styles: Record<string, string> = { current: "bg-emerald-50 text-emerald-700 ring-emerald-600/20", cooling: "bg-amber-50 text-amber-700 ring-amber-600/20", lapsed: "bg-orange-50 text-orange-700 ring-orange-600/20", dormant: "bg-slate-100 text-slate-600 ring-slate-500/20", prospect: "bg-blue-50 text-blue-700 ring-blue-600/20", closed: "bg-rose-50 text-rose-700 ring-rose-600/20" };
   const key = status || "dormant";
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${styles[key] || styles.dormant}`}>{key}</span>;
 }
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-0.5 truncate font-medium text-slate-700">{value}</p></div>;
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`));
-}
-
-function formatCurrency(value?: number | null) {
-  if (value === null || value === undefined) return "—";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(value);
-}
-
-function titleCase(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-}
+function Meta({ label, value }: { label: string; value: string }) { return <div><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-0.5 truncate font-medium text-slate-700">{value}</p></div>; }
+function formatDate(value?: string | null) { if (!value) return "—"; return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`)); }
+function formatCurrency(value?: number | null) { if (value === null || value === undefined) return "—"; return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(value); }
+function titleCase(value: string) { return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()); }
