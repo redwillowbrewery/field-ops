@@ -60,9 +60,12 @@ export default async function AccountsPage({
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Field Ops</p>
               <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
             </div>
-            <div className="hidden text-right md:block">
-              <p className="text-sm font-medium">{count ?? 0} matches</p>
-              <p className="text-xs text-slate-500">Showing up to 100</p>
+            <div className="flex items-center gap-3">
+              <Link href="/prospects/new?from=accounts" className="inline-flex h-10 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">+ Add prospect</Link>
+              <div className="hidden text-right md:block">
+                <p className="text-sm font-medium">{count ?? 0} matches</p>
+                <p className="text-xs text-slate-500">Showing up to 100</p>
+              </div>
             </div>
           </div>
 
