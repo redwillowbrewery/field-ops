@@ -7,7 +7,7 @@ The current export contains 1,893 customer rows and 118 columns. Field Ops shoul
 ## Import strategy
 
 1. Store each source row unchanged in `customer_import_staging.raw_data`.
-2. Normalise optional BMS text fields during transformation. The current export uses the literal value `119` in many otherwise-empty text cells; these should become `NULL` only for fields known to be optional text fields.
+2. Normalise optional BMS text fields by trimming whitespace and converting blank strings to `NULL`.
 3. Upsert accounts using `ID` → `accounts.brewery_customer_id` as the permanent source key.
 4. Import contacts separately instead of preserving the fixed Contact 1–5 structure.
 5. Import BMS sales metrics into `account_sales_snapshot` only. They are not editable CRM data.
@@ -19,7 +19,7 @@ The current export contains 1,893 customer rows and 118 columns. Field Ops shoul
 | --- | --- | --- |
 | ID | `accounts.brewery_customer_id` | Required source key; integer |
 | Customer Name | `accounts.name` | Required |
-| Customer Ref No | `accounts.brewery_customer_ref` | Optional text; normalise empty sentinel |
+| Customer Ref No | `accounts.brewery_customer_ref` | Optional text |
 | External Ref ID | `accounts.external_ref` | Optional text |
 | Classification | `accounts.classification` | Import as source classification |
 | Status | `accounts.brewery_status` | Import unchanged |
