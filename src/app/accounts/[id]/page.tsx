@@ -6,186 +6,41 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
-
-  const { data: account, error } = await supabase
-    .from("accounts")
-    .select(`*, territory:territories(id,name), sales:account_sales_snapshot(*), contacts(*)`)
-    .eq("id", id)
-    .single();
-
+  const { data: account, error } = await supabase.from("accounts").select(`*, territory:territories(id,name), sales:account_sales_snapshot(*), contacts(*)`).eq("id", id).single();
   if (error || !account) notFound();
-
-  const { data: visits } = await supabase
-    .from("visits")
-    .select("id,completed_at,notes,outcome,contact:contacts(full_name),salesperson:profiles(full_name,email)")
-    .eq("account_id", id)
-    .order("completed_at", { ascending: false })
-    .limit(20);
-
-  const { data: openTasks } = await supabase
-    .from("tasks")
-    .select("id,title,task_type,due_at,status")
-    .eq("account_id", id)
-    .eq("status", "open")
-    .order("due_at", { ascending: true })
-    .limit(10);
-
+  const { data: visits } = await supabase.from("visits").select("id,completed_at,notes,outcome,contact:contacts(full_name),salesperson:profiles(full_name,email)").eq("account_id", id).order("completed_at", { ascending: false }).limit(20);
+  const { data: openTasks } = await supabase.from("tasks").select("id,title,task_type,due_at,status").eq("account_id", id).eq("status", "open").order("due_at", { ascending: true }).limit(10);
+  const { data: upcomingAppointments } = await supabase.from("appointments").select("id,starts_at,purpose,status").eq("account_id", id).eq("status", "planned").gte("starts_at", new Date().toISOString()).order("starts_at", { ascending: true }).limit(5);
   const sales = Array.isArray(account.sales) ? account.sales[0] : account.sales;
   const territory = Array.isArray(account.territory) ? account.territory[0] : account.territory;
-  const contacts = [...(account.contacts || [])].sort((a, b) => {
-    if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;
-    return (a.brewery_contact_slot || 99) - (b.brewery_contact_slot || 99);
-  });
+  const contacts = [...(account.contacts || [])].sort((a,b)=>{if(a.is_primary!==b.is_primary)return a.is_primary?-1:1;return(a.brewery_contact_slot||99)-(b.brewery_contact_slot||99);});
 
-  return (
-    <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-10">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
-          <Link href="/accounts" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-900">
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-            Accounts
-          </Link>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{account.name}</h1>
-                <StatusBadge status={account.relationship_status} />
-              </div>
-              <p className="mt-1 text-sm text-slate-500">{[account.classification, account.town, account.postcode].filter(Boolean).join(" · ")}</p>
-            </div>
-            <div className="flex gap-2">
-              <Link href={`/accounts/${account.id}/contacts`} className="inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Manage contacts</Link>
-              <Link href={`/accounts/${account.id}/visit`} className="inline-flex h-10 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">Log visit</Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto grid max-w-5xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-4">
-          <Section title="Account">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Info label="Address" value={formatAddress(account)} multiline />
-              <Info label="Territory" value={territory?.name || account.brewery_location_zone || "—"} />
-              <Info label="Phone" value={account.phone || account.mobile || "—"} href={account.phone || account.mobile ? `tel:${account.phone || account.mobile}` : undefined} />
-              <Info label="Email" value={account.email || "—"} href={account.email ? `mailto:${account.email}` : undefined} />
-              <Info label="Website" value={account.website || "—"} href={normaliseUrl(account.website)} />
-              <Info label="BMS status" value={[account.brewery_status, account.brewery_available === false ? "Unavailable" : null].filter(Boolean).join(" · ") || "—"} />
-            </div>
-          </Section>
-
-          <Section title={`Contacts${contacts.length ? ` (${contacts.length})` : ""}`}>
-            {contacts.length ? (
-              <div className="divide-y divide-slate-100">
-                {contacts.map((contact) => (
-                  <div key={contact.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold">{contact.full_name || "Unnamed contact"}</p>
-                          {contact.is_primary && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Primary</span>}
-                        </div>
-                        {contact.job_title && <p className="mt-1 text-sm text-slate-500">{contact.job_title}</p>}
-                        {contact.email && <a href={`mailto:${contact.email}`} className="mt-1 block text-sm text-slate-600 hover:underline">{contact.email}</a>}
-                        {contact.phone && <a href={`tel:${contact.phone}`} className="mt-0.5 block text-sm text-slate-600 hover:underline">{contact.phone}</a>}
-                      </div>
-                      <div className="flex gap-2">
-                        {contact.phone && <a href={`tel:${contact.phone}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Call</a>}
-                        {contact.email && <a href={`mailto:${contact.email}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Email</a>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : <p className="text-sm text-slate-500">No contacts recorded.</p>}
-          </Section>
-
-          <Section title="Activity">
-            {visits?.length ? (
-              <div className="divide-y divide-slate-100">
-                {visits.map((visit) => {
-                  const contact = Array.isArray(visit.contact) ? visit.contact[0] : visit.contact;
-                  const salesperson = Array.isArray(visit.salesperson) ? visit.salesperson[0] : visit.salesperson;
-                  return (
-                    <article key={visit.id} className="py-4 first:pt-0 last:pb-0">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <OutcomeBadge outcome={visit.outcome} />
-                          <span className="text-sm font-medium text-slate-700">{formatDateTime(visit.completed_at)}</span>
-                        </div>
-                        <span className="text-xs text-slate-400">{salesperson?.full_name || salesperson?.email || "Field Ops"}</span>
-                      </div>
-                      {contact?.full_name && <p className="mt-2 text-sm text-slate-500">Met {contact.full_name}</p>}
-                      {visit.notes && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{visit.notes}</p>}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center">
-                <p className="font-medium">No Field Ops activity yet</p>
-                <p className="mt-1 text-sm text-slate-500">Your first logged visit will appear here.</p>
-              </div>
-            )}
-          </Section>
-        </div>
-
-        <div className="space-y-4">
-          {openTasks?.length ? (
-            <Section title={`Open follow-ups (${openTasks.length})`}>
-              <div className="space-y-3">
-                {openTasks.map((task) => (
-                  <div key={task.id} className="rounded-xl bg-slate-50 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-slate-800">{task.title}</p>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200">{task.task_type}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">Due {formatDate(task.due_at?.slice(0, 10))}</p>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          ) : null}
-
-          <Section title="Sales snapshot">
-            <div className="grid grid-cols-2 gap-4">
-              <Metric label="Lifetime sales" value={formatCurrency(sales?.total_spend)} />
-              <Metric label="Orders" value={sales?.total_orders?.toLocaleString("en-GB") || "—"} />
-              <Metric label="Average order" value={formatCurrency(sales?.average_order_value)} />
-              <Metric label="Largest order" value={formatCurrency(sales?.maximum_order_value)} />
-            </div>
-            <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 text-sm">
-              <DateRow label="First order" value={sales?.first_order_date} />
-              <DateRow label="Last order" value={sales?.last_order_date} />
-              <DateRow label="Last delivery" value={sales?.last_delivery_date} />
-              <DateRow label="Last visit" value={account.last_visit_at?.slice(0, 10)} />
-            </div>
-          </Section>
-
-          <Section title="Field sales">
-            <div className="grid gap-3 text-sm">
-              <Info label="Customer rep" value={account.brewery_customer_rep || "—"} />
-              <Info label="Telesales rep" value={account.brewery_telesales_rep || "—"} />
-              <Info label="Preferred contact" value={account.preferred_contact_method || "—"} />
-              <Info label="Next BMS call" value={formatDate(account.brewery_next_call_date)} />
-              <Info label="Call schedule" value={[account.brewery_call_days, account.brewery_call_time, account.brewery_call_schedule].filter(Boolean).join(" · ") || "—"} />
-            </div>
-          </Section>
-        </div>
-      </main>
-      <BottomNav active="Accounts" />
-    </div>
-  );
+  return <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-10">
+    <header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
+      <Link href="/accounts" className="text-sm font-medium text-slate-500">← Accounts</Link>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{account.name}</h1><StatusBadge status={account.relationship_status}/></div><p className="mt-1 text-sm text-slate-500">{[account.classification,account.town,account.postcode].filter(Boolean).join(" · ")}</p></div>
+      <div className="flex flex-wrap gap-2"><Link href={`/accounts/${account.id}/appointment`} className="inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700">Create appointment</Link><Link href={`/accounts/${account.id}/visit`} className="inline-flex h-10 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white">Log visit</Link></div></div>
+    </div></header>
+    <main className="mx-auto grid max-w-5xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]"><div className="space-y-4">
+      <Section title="Account"><div className="grid gap-4 sm:grid-cols-2"><Info label="Address" value={formatAddress(account)} multiline/><Info label="Territory" value={territory?.name||account.brewery_location_zone||"—"}/><Info label="Phone" value={account.phone||account.mobile||"—"} href={account.phone||account.mobile?`tel:${account.phone||account.mobile}`:undefined}/><Info label="Email" value={account.email||"—"} href={account.email?`mailto:${account.email}`:undefined}/><Info label="Website" value={account.website||"—"} href={normaliseUrl(account.website)}/><Info label="BMS status" value={[account.brewery_status,account.brewery_available===false?"Unavailable":null].filter(Boolean).join(" · ")||"—"}/></div></Section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">Contacts{contacts.length?` (${contacts.length})`:""}</h2><Link href={`/accounts/${account.id}/contacts`} className="text-xs font-semibold text-slate-600 hover:underline">Manage contacts</Link></div>{contacts.length?<div className="divide-y divide-slate-100">{contacts.map(c=><div key={c.id} className="py-3 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{c.full_name||"Unnamed contact"}</p>{c.is_primary&&<span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Primary</span>}</div>{c.job_title&&<p className="mt-0.5 text-xs text-slate-500">{c.job_title}</p>}{c.email&&<a href={`mailto:${c.email}`} className="mt-1 block text-sm text-slate-600 hover:underline">{c.email}</a>}{c.phone&&<a href={`tel:${c.phone}`} className="mt-0.5 block text-sm text-slate-600 hover:underline">{c.phone}</a>}</div><div className="flex gap-2">{c.phone&&<a href={`tel:${c.phone}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Call</a>}{c.email&&<a href={`mailto:${c.email}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Email</a>}</div></div></div>)}</div>:<p className="text-sm text-slate-500">No contacts recorded.</p>}</section>
+      <Section title="Activity">{visits?.length?<div className="divide-y divide-slate-100">{visits.map(v=>{const contact=Array.isArray(v.contact)?v.contact[0]:v.contact;const salesperson=Array.isArray(v.salesperson)?v.salesperson[0]:v.salesperson;return <article key={v.id} className="py-4 first:pt-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><OutcomeBadge outcome={v.outcome}/><span className="text-sm font-medium text-slate-700">{formatDateTime(v.completed_at)}</span></div><span className="text-xs text-slate-400">{salesperson?.full_name||salesperson?.email||"Field Ops"}</span></div>{contact?.full_name&&<p className="mt-2 text-sm text-slate-500">Met {contact.full_name}</p>}{v.notes&&<p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{v.notes}</p>}</article>})}</div>:<div className="rounded-xl border border-dashed border-slate-300 p-5 text-center"><p className="font-medium">No Field Ops activity yet</p><p className="mt-1 text-sm text-slate-500">Your first logged visit will appear here.</p></div>}</Section>
+    </div><div className="space-y-4">
+      {upcomingAppointments?.length?<Section title={`Upcoming appointments (${upcomingAppointments.length})`}><div className="space-y-3">{upcomingAppointments.map(a=><Link key={a.id} href={`/appointments/${a.id}`} className="block rounded-xl bg-slate-50 p-3"><p className="font-semibold text-slate-800">{a.purpose||"Sales visit"}</p><p className="mt-1 text-xs text-slate-500">{formatDateTime(a.starts_at)}</p></Link>)}</div></Section>:null}
+      {openTasks?.length?<Section title={`Open follow-ups (${openTasks.length})`}><div className="space-y-3">{openTasks.map(t=><div key={t.id} className="rounded-xl bg-slate-50 p-3"><div className="flex items-center justify-between gap-3"><p className="font-semibold text-slate-800">{t.title}</p><span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200">{t.task_type}</span></div><p className="mt-1 text-xs text-slate-500">Due {formatDate(t.due_at?.slice(0,10))}</p></div>)}</div></Section>:null}
+      <Section title="Sales snapshot"><div className="grid grid-cols-2 gap-4"><Metric label="Lifetime sales" value={formatCurrency(sales?.total_spend)}/><Metric label="Orders" value={sales?.total_orders?.toLocaleString("en-GB")||"—"}/><Metric label="Average order" value={formatCurrency(sales?.average_order_value)}/><Metric label="Largest order" value={formatCurrency(sales?.maximum_order_value)}/></div><div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 text-sm"><DateRow label="First order" value={sales?.first_order_date}/><DateRow label="Last order" value={sales?.last_order_date}/><DateRow label="Last delivery" value={sales?.last_delivery_date}/><DateRow label="Last visit" value={account.last_visit_at?.slice(0,10)}/></div></Section>
+      <Section title="Field sales"><div className="grid gap-3 text-sm"><Info label="Customer rep" value={account.brewery_customer_rep||"—"}/><Info label="Telesales rep" value={account.brewery_telesales_rep||"—"}/><Info label="Preferred contact" value={account.preferred_contact_method||"—"}/><Info label="Next BMS call" value={formatDate(account.brewery_next_call_date)}/><Info label="Call schedule" value={[account.brewery_call_days,account.brewery_call_time,account.brewery_call_schedule].filter(Boolean).join(" · ")||"—"}/></div></Section>
+    </div></main><BottomNav active="Accounts"/>
+  </div>;
 }
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">{title}</h2>{children}</section>; }
-function Info({ label, value, href, multiline = false }: { label: string; value: string; href?: string; multiline?: boolean }) { return <div><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>{href ? <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className={`mt-1 block font-medium text-slate-800 hover:underline ${multiline ? "whitespace-pre-line" : "truncate"}`}>{value}</a> : <p className={`mt-1 font-medium text-slate-800 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</p>}</div>; }
-function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold tracking-tight">{value}</p></div>; }
-function DateRow({ label, value }: { label: string; value?: string | null }) { return <div className="flex items-center justify-between gap-4"><span className="text-slate-500">{label}</span><span className="font-medium">{formatDate(value)}</span></div>; }
-function StatusBadge({ status }: { status: string | null }) { const styles: Record<string,string>={current:"bg-emerald-50 text-emerald-700 ring-emerald-600/20",cooling:"bg-amber-50 text-amber-700 ring-amber-600/20",lapsed:"bg-orange-50 text-orange-700 ring-orange-600/20",dormant:"bg-slate-100 text-slate-600 ring-slate-500/20",prospect:"bg-blue-50 text-blue-700 ring-blue-600/20",closed:"bg-rose-50 text-rose-700 ring-rose-600/20"}; const key=status||"dormant"; return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${styles[key]||styles.dormant}`}>{key}</span>; }
-function OutcomeBadge({ outcome }: { outcome: string | null }) { const styles:Record<string,string>={good:"bg-emerald-50 text-emerald-700",neutral:"bg-slate-100 text-slate-600",problem:"bg-rose-50 text-rose-700",opportunity:"bg-blue-50 text-blue-700"}; const key=outcome||"neutral"; return <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${styles[key]||styles.neutral}`}>{key}</span>; }
-function formatAddress(account:{address_line_1?:string|null;address_line_2?:string|null;town?:string|null;county?:string|null;postcode?:string|null}){return [account.address_line_1,account.address_line_2,account.town,account.county,account.postcode].filter(Boolean).join("\n")||"—";}
-function formatDate(value?:string|null){if(!value)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric"}).format(new Date(`${value}T00:00:00`));}
-function formatDateTime(value?:string|null){if(!value)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(value));}
-function formatCurrency(value?:number|null){if(value===null||value===undefined)return"—";return new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:0}).format(value);}
-function normaliseUrl(value?:string|null){if(!value)return undefined;return /^https?:\/\//i.test(value)?value:`https://${value}`;}
+function Section({title,children}:{title:string;children:React.ReactNode}){return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">{title}</h2>{children}</section>}
+function Info({label,value,href,multiline=false}:{label:string;value:string;href?:string;multiline?:boolean}){return <div><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>{href?<a href={href} target={href.startsWith("http")?"_blank":undefined} rel={href.startsWith("http")?"noreferrer":undefined} className={`mt-1 block font-medium text-slate-800 hover:underline ${multiline?"whitespace-pre-line":"truncate"}`}>{value}</a>:<p className={`mt-1 font-medium text-slate-800 ${multiline?"whitespace-pre-line":""}`}>{value}</p>}</div>}
+function Metric({label,value}:{label:string;value:string}){return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold tracking-tight">{value}</p></div>}
+function DateRow({label,value}:{label:string;value?:string|null}){return <div className="flex items-center justify-between gap-4"><span className="text-slate-500">{label}</span><span className="font-medium">{formatDate(value)}</span></div>}
+function StatusBadge({status}:{status:string|null}){const styles:Record<string,string>={current:"bg-emerald-50 text-emerald-700 ring-emerald-600/20",cooling:"bg-amber-50 text-amber-700 ring-amber-600/20",lapsed:"bg-orange-50 text-orange-700 ring-orange-600/20",dormant:"bg-slate-100 text-slate-600 ring-slate-500/20",prospect:"bg-blue-50 text-blue-700 ring-blue-600/20",closed:"bg-rose-50 text-rose-700 ring-rose-600/20"};const key=status||"dormant";return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${styles[key]||styles.dormant}`}>{key}</span>}
+function OutcomeBadge({outcome}:{outcome:string|null}){const styles:Record<string,string>={good:"bg-emerald-50 text-emerald-700",neutral:"bg-slate-100 text-slate-600",problem:"bg-rose-50 text-rose-700",opportunity:"bg-blue-50 text-blue-700"};const key=outcome||"neutral";return <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${styles[key]||styles.neutral}`}>{key}</span>}
+function formatAddress(a:{address_line_1?:string|null;address_line_2?:string|null;town?:string|null;county?:string|null;postcode?:string|null}){return[a.address_line_1,a.address_line_2,a.town,a.county,a.postcode].filter(Boolean).join("\n")||"—"}
+function formatDate(v?:string|null){if(!v)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric"}).format(new Date(`${v}T00:00:00`))}
+function formatDateTime(v?:string|null){if(!v)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(v))}
+function formatCurrency(v?:number|null){if(v===null||v===undefined)return"—";return new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:0}).format(v)}
+function normaliseUrl(v?:string|null){if(!v)return undefined;return /^https?:\/\//i.test(v)?v:`https://${v}`}
