@@ -3,7 +3,7 @@ import Link from "next/link";
 const items = [
   { label: "Today", href: "/today", icon: "calendar" },
   { label: "Accounts", href: "/accounts", icon: "accounts" },
-  { label: "Map", href: "/map", icon: "map", disabled: true },
+  { label: "Map", href: "/map", icon: "map" },
   { label: "Tasks", href: "/tasks", icon: "tasks" },
   { label: "More", href: "/more", icon: "more", disabled: true },
 ];
@@ -16,13 +16,10 @@ export function BottomNav({ active = "Accounts" }: { active?: string }) {
           {items.map((item) => <NavItem key={item.label} item={item} active={active} mobile />)}
         </div>
       </nav>
-
       <nav className="sticky top-0 z-50 hidden border-b border-slate-200 bg-white/95 backdrop-blur md:block">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
           <Link href="/today" className="text-sm font-bold tracking-tight text-slate-950">Field Ops</Link>
-          <div className="flex items-center gap-1">
-            {items.map((item) => <NavItem key={item.label} item={item} active={active} />)}
-          </div>
+          <div className="flex items-center gap-1">{items.map((item) => <NavItem key={item.label} item={item} active={active} />)}</div>
         </div>
       </nav>
     </>
@@ -34,7 +31,6 @@ function NavItem({ item, active, mobile = false }: { item: (typeof items)[number
   const classes = mobile
     ? `flex min-h-16 flex-col items-center justify-center gap-1 px-1 ${isActive ? "text-slate-950" : "text-slate-400"} ${item.disabled ? "cursor-default opacity-55" : ""}`
     : `inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${isActive ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"} ${item.disabled ? "cursor-default opacity-40 hover:bg-transparent" : ""}`;
-
   const content = <><NavIcon name={item.icon} /><span>{item.label}</span>{item.disabled && <span className="sr-only">Coming soon</span>}</>;
   return item.disabled ? <div className={classes} aria-disabled="true">{content}</div> : <Link href={item.href} className={classes}>{content}</Link>;
 }
