@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BottomNav } from "@/components/bottom-nav";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { MapView } from "./map-view";
@@ -73,9 +74,14 @@ export default async function MapPage() {
     <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-8">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Field Ops</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Map</h1>
-          <p className="mt-1 text-sm text-slate-500">Find nearby accounts when you have a gap in the day.</p>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Field Ops</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">Map</h1>
+              <p className="mt-1 text-sm text-slate-500">Find nearby accounts when you have a gap in the day.</p>
+            </div>
+            <Link href="/prospects/new" className="inline-flex h-10 shrink-0 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">+ Add prospect</Link>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
