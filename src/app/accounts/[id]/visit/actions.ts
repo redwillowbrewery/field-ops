@@ -11,12 +11,16 @@ const TASK_TYPES = new Set(["call", "email", "quote", "samples", "revisit", "ord
 
 export async function logVisit(_previousState: LogVisitState, formData: FormData): Promise<LogVisitState> {
   const accountId = String(formData.get("account_id") ?? "");
-  const contactId = String(formData.get("contact_id") ?? "") || null;
+  let contactId = String(formData.get("contact_id") ?? "") || null;
   const notes = String(formData.get("notes") ?? "").trim();
   const outcome = String(formData.get("outcome") ?? "neutral");
   const taskType = String(formData.get("task_type") ?? "");
   const taskTitle = String(formData.get("task_title") ?? "").trim();
   const dueDate = String(formData.get("due_date") ?? "").trim();
+  const newContactName = String(formData.get("new_contact_name") ?? "").trim();
+  const newContactRole = String(formData.get("new_contact_role") ?? "").trim();
+  const newContactEmail = String(formData.get("new_contact_email") ?? "").trim().toLowerCase();
+  const newContactPhone = String(formData.get("new_contact_phone") ?? "").trim();
 
   if (!accountId) return { error: "Account is required." };
   if (!OUTCOMES.has(outcome)) return { error: "Choose a valid visit outcome." };
@@ -24,6 +28,25 @@ export async function logVisit(_previousState: LogVisitState, formData: FormData
   const supabase = await createSupabaseServerClient();
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) redirect("/login");
+
+  if (contactId === "__new__") {
+    if (!newContactName) return { error: "Enter the name of the new contact." };
+    const { data: newContact, error: contactError } = await supabase
+      .from("contacts")
+      .insert({
+        account_id: accountId,
+        full_name: newContactName,
+        job_title: newContactRole || null,
+        email: newContactEmail || null,
+        phone: newContactPhone || null,
+        source: "field_ops",
+        active: true,
+      })
+      .select("id")
+      .single();
+    if (contactError) return { error: `Could not add contact: ${contactError.message}` };
+    contactId = newContact.id;
+  }
 
   const now = new Date().toISOString();
   const { data: visit, error: visitError } = await supabase
