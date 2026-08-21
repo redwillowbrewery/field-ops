@@ -5,16 +5,11 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: account, error } = await supabase
     .from("accounts")
-    .select(
-      `*,
-       territory:territories(id,name),
-       sales:account_sales_snapshot(*),
-       contacts(*)`
-    )
+    .select(`*, territory:territories(id,name), sales:account_sales_snapshot(*), contacts(*)`)
     .eq("id", id)
     .single();
 
@@ -41,9 +36,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{account.name}</h1>
                 <StatusBadge status={account.relationship_status} />
               </div>
-              <p className="mt-1 text-sm text-slate-500">
-                {[account.classification, account.town, account.postcode].filter(Boolean).join(" · ")}
-              </p>
+              <p className="mt-1 text-sm text-slate-500">{[account.classification, account.town, account.postcode].filter(Boolean).join(" · ")}</p>
             </div>
             <div className="flex gap-2">
               <button disabled className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-400">Add follow-up</button>
@@ -88,9 +81,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-slate-500">No contacts recorded.</p>
-            )}
+            ) : <p className="text-sm text-slate-500">No contacts recorded.</p>}
           </Section>
 
           <Section title="Activity">
@@ -127,37 +118,17 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           </Section>
         </div>
       </main>
-
       <BottomNav active="Accounts" />
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">{title}</h2>{children}</section>;
-}
-
-function Info({ label, value, href, multiline = false }: { label: string; value: string; href?: string; multiline?: boolean }) {
-  return <div><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>{href ? <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className={`mt-1 block font-medium text-slate-800 hover:underline ${multiline ? "whitespace-pre-line" : "truncate"}`}>{value}</a> : <p className={`mt-1 font-medium text-slate-800 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</p>}</div>;
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold tracking-tight">{value}</p></div>;
-}
-
-function DateRow({ label, value }: { label: string; value?: string | null }) {
-  return <div className="flex items-center justify-between gap-4"><span className="text-slate-500">{label}</span><span className="font-medium">{formatDate(value)}</span></div>;
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  const styles: Record<string, string> = { current: "bg-emerald-50 text-emerald-700 ring-emerald-600/20", cooling: "bg-amber-50 text-amber-700 ring-amber-600/20", lapsed: "bg-orange-50 text-orange-700 ring-orange-600/20", dormant: "bg-slate-100 text-slate-600 ring-slate-500/20", prospect: "bg-blue-50 text-blue-700 ring-blue-600/20", closed: "bg-rose-50 text-rose-700 ring-rose-600/20" };
-  const key = status || "dormant";
-  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${styles[key] || styles.dormant}`}>{key}</span>;
-}
-
-function formatAddress(account: { address_line_1?: string | null; address_line_2?: string | null; town?: string | null; county?: string | null; postcode?: string | null }) {
-  return [account.address_line_1, account.address_line_2, account.town, account.county, account.postcode].filter(Boolean).join("\n") || "—";
-}
-function formatDate(value?: string | null) { if (!value) return "—"; return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`)); }
-function formatCurrency(value?: number | null) { if (value === null || value === undefined) return "—"; return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(value); }
-function normaliseUrl(value?: string | null) { if (!value) return undefined; return /^https?:\/\//i.test(value) ? value : `https://${value}`; }
+function Section({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">{title}</h2>{children}</section>; }
+function Info({ label, value, href, multiline = false }: { label: string; value: string; href?: string; multiline?: boolean }) { return <div><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>{href ? <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined} className={`mt-1 block font-medium text-slate-800 hover:underline ${multiline ? "whitespace-pre-line" : "truncate"}`}>{value}</a> : <p className={`mt-1 font-medium text-slate-800 ${multiline ? "whitespace-pre-line" : ""}`}>{value}</p>}</div>; }
+function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold tracking-tight">{value}</p></div>; }
+function DateRow({ label, value }: { label: string; value?: string | null }) { return <div className="flex items-center justify-between gap-4"><span className="text-slate-500">{label}</span><span className="font-medium">{formatDate(value)}</span></div>; }
+function StatusBadge({ status }: { status: string | null }) { const styles: Record<string,string>={current:"bg-emerald-50 text-emerald-700 ring-emerald-600/20",cooling:"bg-amber-50 text-amber-700 ring-amber-600/20",lapsed:"bg-orange-50 text-orange-700 ring-orange-600/20",dormant:"bg-slate-100 text-slate-600 ring-slate-500/20",prospect:"bg-blue-50 text-blue-700 ring-blue-600/20",closed:"bg-rose-50 text-rose-700 ring-rose-600/20"}; const key=status||"dormant"; return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${styles[key]||styles.dormant}`}>{key}</span>; }
+function formatAddress(account:{address_line_1?:string|null;address_line_2?:string|null;town?:string|null;county?:string|null;postcode?:string|null}){return [account.address_line_1,account.address_line_2,account.town,account.county,account.postcode].filter(Boolean).join("\n")||"—";}
+function formatDate(value?:string|null){if(!value)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric"}).format(new Date(`${value}T00:00:00`));}
+function formatCurrency(value?:number|null){if(value===null||value===undefined)return"—";return new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:0}).format(value);}
+function normaliseUrl(value?:string|null){if(!value)return undefined;return /^https?:\/\//i.test(value)?value:`https://${value}`;}
