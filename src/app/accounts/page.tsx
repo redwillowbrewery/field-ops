@@ -4,6 +4,9 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 const RELATIONSHIP_STATUSES = ["current", "cooling", "lapsed", "dormant", "prospect", "closed"];
 
+type TerritoryRelation = { name?: string | null } | { name?: string | null }[] | null;
+type SalesRelation = { last_order_date?: string | null; total_spend?: number | null; total_orders?: number | null } | { last_order_date?: string | null; total_spend?: number | null; total_orders?: number | null }[] | null;
+
 export default async function AccountsPage({
   searchParams,
 }: {
@@ -96,8 +99,10 @@ export default async function AccountsPage({
 
         <div className="grid gap-3">
           {(accounts || []).map((account) => {
-            const sales = Array.isArray(account.sales) ? account.sales[0] : account.sales;
-            const territoryName = Array.isArray(account.territory) ? account.territory[0]?.name : account.territory?.name;
+            const salesRelation = account.sales as SalesRelation;
+            const sales = Array.isArray(salesRelation) ? salesRelation[0] : salesRelation;
+            const territoryRelation = account.territory as TerritoryRelation;
+            const territoryName = Array.isArray(territoryRelation) ? territoryRelation[0]?.name : territoryRelation?.name;
             return (
               <Link key={account.id} href={`/accounts/${account.id}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
                 <div className="flex items-start justify-between gap-4">
