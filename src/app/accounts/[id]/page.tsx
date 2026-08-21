@@ -15,6 +15,21 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
 
   if (error || !account) notFound();
 
+  const { data: visits } = await supabase
+    .from("visits")
+    .select("id,completed_at,notes,outcome,contact:contacts(full_name),salesperson:profiles(full_name,email)")
+    .eq("account_id", id)
+    .order("completed_at", { ascending: false })
+    .limit(20);
+
+  const { data: openTasks } = await supabase
+    .from("tasks")
+    .select("id,title,task_type,due_at,status")
+    .eq("account_id", id)
+    .eq("status", "open")
+    .order("due_at", { ascending: true })
+    .limit(10);
+
   const sales = Array.isArray(account.sales) ? account.sales[0] : account.sales;
   const territory = Array.isArray(account.territory) ? account.territory[0] : account.territory;
   const contacts = [...(account.contacts || [])].sort((a, b) => {
@@ -40,7 +55,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             </div>
             <div className="flex gap-2">
               <button disabled className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-400">Add follow-up</button>
-              <button disabled className="h-10 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white opacity-45">Log visit</button>
+              <Link href={`/accounts/${account.id}/visit`} className="inline-flex h-10 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">Log visit</Link>
             </div>
           </div>
         </div>
@@ -85,14 +100,52 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           </Section>
 
           <Section title="Activity">
-            <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center">
-              <p className="font-medium">No Field Ops activity yet</p>
-              <p className="mt-1 text-sm text-slate-500">Visits, notes, appointments and follow-ups will appear here.</p>
-            </div>
+            {visits?.length ? (
+              <div className="divide-y divide-slate-100">
+                {visits.map((visit) => {
+                  const contact = Array.isArray(visit.contact) ? visit.contact[0] : visit.contact;
+                  const salesperson = Array.isArray(visit.salesperson) ? visit.salesperson[0] : visit.salesperson;
+                  return (
+                    <article key={visit.id} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <OutcomeBadge outcome={visit.outcome} />
+                          <span className="text-sm font-medium text-slate-700">{formatDateTime(visit.completed_at)}</span>
+                        </div>
+                        <span className="text-xs text-slate-400">{salesperson?.full_name || salesperson?.email || "Field Ops"}</span>
+                      </div>
+                      {contact?.full_name && <p className="mt-2 text-sm text-slate-500">Met {contact.full_name}</p>}
+                      {visit.notes && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{visit.notes}</p>}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center">
+                <p className="font-medium">No Field Ops activity yet</p>
+                <p className="mt-1 text-sm text-slate-500">Your first logged visit will appear here.</p>
+              </div>
+            )}
           </Section>
         </div>
 
         <div className="space-y-4">
+          {openTasks?.length ? (
+            <Section title={`Open follow-ups (${openTasks.length})`}>
+              <div className="space-y-3">
+                {openTasks.map((task) => (
+                  <div key={task.id} className="rounded-xl bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-slate-800">{task.title}</p>
+                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200">{task.task_type}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Due {formatDate(task.due_at?.slice(0, 10))}</p>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          ) : null}
+
           <Section title="Sales snapshot">
             <div className="grid grid-cols-2 gap-4">
               <Metric label="Lifetime sales" value={formatCurrency(sales?.total_spend)} />
@@ -104,6 +157,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
               <DateRow label="First order" value={sales?.first_order_date} />
               <DateRow label="Last order" value={sales?.last_order_date} />
               <DateRow label="Last delivery" value={sales?.last_delivery_date} />
+              <DateRow label="Last visit" value={account.last_visit_at?.slice(0, 10)} />
             </div>
           </Section>
 
@@ -128,7 +182,9 @@ function Info({ label, value, href, multiline = false }: { label: string; value:
 function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold tracking-tight">{value}</p></div>; }
 function DateRow({ label, value }: { label: string; value?: string | null }) { return <div className="flex items-center justify-between gap-4"><span className="text-slate-500">{label}</span><span className="font-medium">{formatDate(value)}</span></div>; }
 function StatusBadge({ status }: { status: string | null }) { const styles: Record<string,string>={current:"bg-emerald-50 text-emerald-700 ring-emerald-600/20",cooling:"bg-amber-50 text-amber-700 ring-amber-600/20",lapsed:"bg-orange-50 text-orange-700 ring-orange-600/20",dormant:"bg-slate-100 text-slate-600 ring-slate-500/20",prospect:"bg-blue-50 text-blue-700 ring-blue-600/20",closed:"bg-rose-50 text-rose-700 ring-rose-600/20"}; const key=status||"dormant"; return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ring-1 ring-inset ${styles[key]||styles.dormant}`}>{key}</span>; }
+function OutcomeBadge({ outcome }: { outcome: string | null }) { const styles:Record<string,string>={good:"bg-emerald-50 text-emerald-700",neutral:"bg-slate-100 text-slate-600",problem:"bg-rose-50 text-rose-700",opportunity:"bg-blue-50 text-blue-700"}; const key=outcome||"neutral"; return <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${styles[key]||styles.neutral}`}>{key}</span>; }
 function formatAddress(account:{address_line_1?:string|null;address_line_2?:string|null;town?:string|null;county?:string|null;postcode?:string|null}){return [account.address_line_1,account.address_line_2,account.town,account.county,account.postcode].filter(Boolean).join("\n")||"—";}
 function formatDate(value?:string|null){if(!value)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric"}).format(new Date(`${value}T00:00:00`));}
+function formatDateTime(value?:string|null){if(!value)return"—";return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(value));}
 function formatCurrency(value?:number|null){if(value===null||value===undefined)return"—";return new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:0}).format(value);}
 function normaliseUrl(value?:string|null){if(!value)return undefined;return /^https?:\/\//i.test(value)?value:`https://${value}`;}
