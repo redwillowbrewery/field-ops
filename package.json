@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "import:customers": "node scripts/import-customers.mjs",
+    "discounts:import": "node scripts/import-customer-discounts.mjs",
     "geocode:accounts": "node scripts/geocode-accounts.mjs",
     "sellar:test": "node --env-file=.env.local scripts/sellar-test.mjs",
     "sales:audit": "node scripts/audit-viewplan-sales-runner.mjs",
