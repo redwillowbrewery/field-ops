@@ -10,7 +10,7 @@
     "import:customers": "node scripts/import-customers.mjs",
     "geocode:accounts": "node scripts/geocode-accounts.mjs",
     "sellar:test": "node --env-file=.env.local scripts/sellar-test.mjs",
-    "sales:audit": "node scripts/audit-viewplan-sales.mjs"
+    "sales:audit": "node scripts/audit-viewplan-sales-runner.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
