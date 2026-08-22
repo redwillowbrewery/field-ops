@@ -18,9 +18,9 @@ if (!fs.existsSync(filePath)) {
 
 loadEnvFile(path.resolve(".env.local"));
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-if (!supabaseUrl || !anonKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or Supabase publishable/anon key in .env.local.");
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local.");
   process.exit(1);
 }
 
@@ -34,7 +34,7 @@ for (const column of REQUIRED_COLUMNS) {
   if (!(column in rows[0])) throw new Error(`Expected column '${column}' was not found in the export.`);
 }
 
-const supabase = createClient(supabaseUrl, anonKey, {
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
@@ -77,7 +77,6 @@ function groupCustomers(sourceRows) {
         sourceName: parsed.name,
         sourceLocation: parsed.location,
         displayNames: new Set(),
-        postcodes: new Set(),
         rows: 0,
         orders: new Set(),
         revenue: 0,
@@ -85,9 +84,9 @@ function groupCustomers(sourceRows) {
     }
     const group = groups.get(key);
     group.displayNames.add(display);
-    if (text(row.Postcode)) group.postcodes.add(normalizePostcode(row.Postcode));
     group.rows += 1;
-    if (orderKey(row) !== null) group.orders.add(orderKey(row));
+    const order = orderKey(row);
+    if (order !== null) group.orders.add(order);
     group.revenue += money(row["Net (Incl Discount)"]) || 0;
   }
   return [...groups.values()];
@@ -100,7 +99,7 @@ function buildAccountIndexes(accounts) {
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key).push(account);
   }
-  return { byName };
+  return { byName, all: accounts };
 }
 
 function matchCustomers(groups, indexes) {
@@ -115,7 +114,7 @@ function matchCustomers(groups, indexes) {
       return makeUnmatched(group, "ambiguous_name", exact.map((a) => `${a.name} [${a.town || ""} ${a.postcode || ""}]`).join(" | "));
     }
 
-    const candidates = nearestNameCandidates(group.sourceName, [...indexes.byName.values()].flat());
+    const candidates = nearestNameCandidates(group.sourceName, indexes.all);
     const strong = candidates.filter((candidate) => candidate.score >= 0.90 && locationSupports(group, candidate.account));
     if (strong.length === 1) return makeMatch(group, strong[0].account, "probable_name_location", "medium", `name similarity ${strong[0].score.toFixed(2)}`);
 
@@ -168,7 +167,6 @@ function makeUnmatched(group, method, note) {
 }
 
 function buildAudit(sourceRows, customerGroups, matches) {
-  const validOrderRows = sourceRows.filter((r) => orderKey(r) !== null);
   const orders = new Map();
   const salesChannels = new Map();
   const packageTypes = new Map();
@@ -186,8 +184,9 @@ function buildAudit(sourceRows, customerGroups, matches) {
     const order = orderKey(row);
     if (order === null) missingOrderRows += 1;
     else {
-      if (!orders.has(order)) orders.set(order, { customer: text(row.Customer), rows: 0, revenue: 0 });
+      if (!orders.has(order)) orders.set(order, { customers: new Set(), rows: 0, revenue: 0 });
       const o = orders.get(order);
+      o.customers.add(text(row.Customer) || "(blank)");
       o.rows += 1;
       o.revenue += money(row["Net (Incl Discount)"]) || 0;
     }
@@ -211,10 +210,8 @@ function buildAudit(sourceRows, customerGroups, matches) {
   const review = matches.filter((m) => m.status !== "matched");
   const matchedRevenue = matched.reduce((sum, m) => sum + m.revenue, 0);
   const reviewRevenue = review.reduce((sum, m) => sum + m.revenue, 0);
-  const orderCustomerCollisions = [...orders.entries()].filter(([, value]) => {
-    const names = new Set(validOrderRows.filter((r) => orderKey(r) === arguments[0]).map((r) => text(r.Customer)));
-    return names.size > 1;
-  });
+  const orderCustomerCollisions = [...orders.values()].filter((order) => order.customers.size > 1).length;
+  const sortedDates = [...dates].sort();
 
   return {
     sourceRows: sourceRows.length,
@@ -228,8 +225,8 @@ function buildAudit(sourceRows, customerGroups, matches) {
     sellarRows,
     netAfterDiscount: round2(netAfterDiscount),
     totalLitres: round2(totalLitres),
-    firstOrderDate: dates.sort()[0] || null,
-    lastOrderDate: dates.sort().at(-1) || null,
+    firstOrderDate: sortedDates[0] || null,
+    lastOrderDate: sortedDates.at(-1) || null,
     matchedCustomers: matched.length,
     reviewCustomers: review.length,
     matchedRevenue: round2(matchedRevenue),
@@ -238,34 +235,34 @@ function buildAudit(sourceRows, customerGroups, matches) {
     salesChannels: sortedCounts(salesChannels),
     packageTypes: sortedCounts(packageTypes),
     matches,
-    orderCustomerCollisions: orderCustomerCollisions.length,
+    orderCustomerCollisions,
   };
 }
 
 function printAudit(audit, file, accountCount) {
   console.log("Field Ops - ViewPlan sales history audit\n----------------------------------------");
-  console.log(`Mode:                 DRY RUN`);
-  console.log(`File:                 ${file}`);
-  console.log(`Field Ops accounts:   ${accountCount}`);
-  console.log(`Source line rows:      ${audit.sourceRows}`);
-  console.log(`Unique orders:         ${audit.uniqueOrders}`);
-  console.log(`Unique customers:      ${audit.uniqueCustomers}`);
-  console.log(`Unique products:       ${audit.uniqueProducts}`);
-  console.log(`Order date range:      ${audit.firstOrderDate || "—"} to ${audit.lastOrderDate || "—"}`);
-  console.log(`Net incl discounts:    ${gbp(audit.netAfterDiscount)}`);
-  console.log(`Total litres:          ${audit.totalLitres.toLocaleString("en-GB", { maximumFractionDigits: 2 })}`);
-  console.log(`Rows without order no: ${audit.missingOrderRows}`);
-  console.log(`Discount rows:         ${audit.discountRows}`);
-  console.log(`Zero-value rows:       ${audit.zeroValueRows}`);
-  console.log(`Negative-value rows:   ${audit.negativeRows}`);
-  console.log(`Sellar channel rows:   ${audit.sellarRows}`);
-  console.log(`Order/customer clashes:${audit.orderCustomerCollisions}`);
+  console.log(`Mode:                  DRY RUN`);
+  console.log(`File:                  ${file}`);
+  console.log(`Field Ops accounts:    ${accountCount}`);
+  console.log(`Source line rows:       ${audit.sourceRows}`);
+  console.log(`Unique orders:          ${audit.uniqueOrders}`);
+  console.log(`Unique customers:       ${audit.uniqueCustomers}`);
+  console.log(`Unique products:        ${audit.uniqueProducts}`);
+  console.log(`Order date range:       ${audit.firstOrderDate || "—"} to ${audit.lastOrderDate || "—"}`);
+  console.log(`Net incl discounts:     ${gbp(audit.netAfterDiscount)}`);
+  console.log(`Total litres:           ${audit.totalLitres.toLocaleString("en-GB", { maximumFractionDigits: 2 })}`);
+  console.log(`Rows without order no:  ${audit.missingOrderRows}`);
+  console.log(`Discount rows:          ${audit.discountRows}`);
+  console.log(`Zero-value rows:        ${audit.zeroValueRows}`);
+  console.log(`Negative-value rows:    ${audit.negativeRows}`);
+  console.log(`Sellar channel rows:    ${audit.sellarRows}`);
+  console.log(`Order/customer clashes: ${audit.orderCustomerCollisions}`);
 
   console.log("\nCustomer matching");
-  console.log(`Matched:               ${audit.matchedCustomers}/${audit.uniqueCustomers} (${(audit.matchRate * 100).toFixed(1)}%)`);
-  console.log(`Needs review:          ${audit.reviewCustomers}`);
-  console.log(`Matched revenue:       ${gbp(audit.matchedRevenue)}`);
-  console.log(`Review revenue:        ${gbp(audit.reviewRevenue)}`);
+  console.log(`Matched:                ${audit.matchedCustomers}/${audit.uniqueCustomers} (${(audit.matchRate * 100).toFixed(1)}%)`);
+  console.log(`Needs review:           ${audit.reviewCustomers}`);
+  console.log(`Matched revenue:        ${gbp(audit.matchedRevenue)}`);
+  console.log(`Review revenue:         ${gbp(audit.reviewRevenue)}`);
 
   const review = audit.matches.filter((m) => m.status !== "matched");
   if (review.length) {
@@ -312,9 +309,7 @@ function locationSupports(group, account) {
   if (!group.sourceLocation) return true;
   const source = normalizeName(group.sourceLocation);
   const town = normalizeName(account.town);
-  if (source && town && (source === town || source.includes(town) || town.includes(source))) return true;
-  if (group.postcodes.size && account.postcode && group.postcodes.has(normalizePostcode(account.postcode))) return true;
-  return false;
+  return Boolean(source && town && (source === town || source.includes(town) || town.includes(source)));
 }
 
 function nearestNameCandidates(sourceName, accounts) {
@@ -363,16 +358,15 @@ function normalizeName(value) {
     .trim();
 }
 
-function normalizePostcode(value) {
-  return String(value || "").toUpperCase().replace(/\s+/g, "").trim();
-}
-
 function money(value) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  const cleaned = String(value).replace(/[£,$\s]/g, "").replace(/[()]/g, (m) => (m === "(" ? "-" : ""));
+  const raw = String(value).trim();
+  const negative = raw.startsWith("(") && raw.endsWith(")");
+  const cleaned = raw.replace(/[£,$()\s]/g, "");
   const parsed = Number.parseFloat(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (!Number.isFinite(parsed)) return null;
+  return negative ? -parsed : parsed;
 }
 
 function number(value) {
