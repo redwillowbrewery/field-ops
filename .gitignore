@@ -22,6 +22,7 @@
 
 # local integration captures
 /tmp/sellar/
+/tmp/viewplan-sales/
 
 # misc
 .DS_Store
