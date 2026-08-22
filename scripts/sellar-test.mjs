@@ -4,11 +4,17 @@ import path from "node:path";
 const BASE_URL = process.env.SELLAR_API_BASE_URL || "https://api.sellar.io";
 const TOKEN = process.env.SELLAR_API_TOKEN;
 const OUT_DIR = path.resolve("tmp/sellar");
+const PAGE_SIZE = Number(process.env.SELLAR_TEST_PAGE_SIZE || 100);
+const MAX_PAGES = Number(process.env.SELLAR_TEST_MAX_PAGES || 1000);
+const PREVIEW_ROWS = Number(process.env.SELLAR_TEST_PREVIEW_ROWS || 10);
 
 if (!TOKEN) {
   console.error("Missing SELLAR_API_TOKEN. Add it to .env.local or your shell environment.");
   process.exit(1);
 }
+
+if (!Number.isInteger(PAGE_SIZE) || PAGE_SIZE < 1) fail("SELLAR_TEST_PAGE_SIZE must be a positive integer.");
+if (!Number.isInteger(MAX_PAGES) || MAX_PAGES < 1) fail("SELLAR_TEST_MAX_PAGES must be a positive integer.");
 
 const command = process.argv[2] || "summary";
 const id = process.argv[3];
@@ -42,21 +48,22 @@ switch (command) {
 
 async function runSummary() {
   console.log(`Sellar read-only test against ${BASE_URL}`);
-  console.log("GET endpoints only. No product/order/webhook writes are implemented.\n");
-  await runProducts(10);
+  console.log("GET endpoints only. No product/order/webhook writes are implemented.");
+  console.log(`Pagination: ${PAGE_SIZE} records/page, up to ${MAX_PAGES} pages.\n`);
+  await runProducts();
   console.log("\n---\n");
-  await runRetailers(10);
+  await runRetailers();
   console.log("\n---\n");
-  await runOrders(10);
+  await runOrders();
 }
 
-async function runProducts(limit = 25) {
-  const body = await getJson(`/products?limit=${limit}&offset=0`);
-  await saveRaw("products", body);
-  const rows = normalizeData(body);
+async function runProducts() {
+  const result = await getAllPages("/products");
+  await saveRaw("products", result);
+  const rows = result.data;
 
-  console.log(`Products returned: ${rows.length}`);
-  for (const product of rows.slice(0, limit)) {
+  console.log(`Products returned: ${rows.length} across ${result.pages} page${result.pages === 1 ? "" : "s"}`);
+  for (const product of rows.slice(0, PREVIEW_ROWS)) {
     const parent = product.Parent || product.parent || null;
     console.log([
       `#${product.id ?? "?"}`,
@@ -76,16 +83,18 @@ async function runProducts(limit = 25) {
     const props = summarizeProperties(product.Properties || parent?.Properties || []);
     if (props) console.log(`  properties: ${props}`);
   }
+  if (rows.length > PREVIEW_ROWS) console.log(`  … ${rows.length - PREVIEW_ROWS} more products saved to raw JSON`);
+  printPaginationDiagnostics(result);
   console.log(`Raw JSON: ${path.relative(process.cwd(), path.join(OUT_DIR, "products.json"))}`);
 }
 
-async function runRetailers(limit = 25) {
-  const body = await getJson(`/supplier-retailer-connections?limit=${limit}&offset=0`);
-  await saveRaw("retailers", body);
-  const rows = normalizeData(body);
+async function runRetailers() {
+  const result = await getAllPages("/supplier-retailer-connections");
+  await saveRaw("retailers", result);
+  const rows = result.data;
 
-  console.log(`Retailer connections returned: ${rows.length}`);
-  for (const row of rows.slice(0, limit)) {
+  console.log(`Retailer connections returned: ${rows.length} across ${result.pages} page${result.pages === 1 ? "" : "s"}`);
+  for (const row of rows.slice(0, PREVIEW_ROWS)) {
     const retailer = row.Retailer || row.retailer || row;
     const business = retailer.Business || retailer.business || row.Business || row.business || {};
     const address = business.DeliveryAddress || business.deliveryAddress || {};
@@ -98,16 +107,18 @@ async function runRetailers(limit = 25) {
       business.email || "",
     ].filter(Boolean).join(" | "));
   }
+  if (rows.length > PREVIEW_ROWS) console.log(`  … ${rows.length - PREVIEW_ROWS} more retailer connections saved to raw JSON`);
+  printPaginationDiagnostics(result);
   console.log(`Raw JSON: ${path.relative(process.cwd(), path.join(OUT_DIR, "retailers.json"))}`);
 }
 
-async function runOrders(limit = 25) {
-  const body = await getJson(`/orders?limit=${limit}&offset=0&order[]=${encodeURIComponent('["updatedAt","DESC"]')}`);
-  await saveRaw("orders", body);
-  const rows = normalizeData(body);
+async function runOrders() {
+  const result = await getAllPages("/orders", { "order[]": '["updatedAt","DESC"]' });
+  await saveRaw("orders", result);
+  const rows = result.data;
 
-  console.log(`Orders returned: ${rows.length}`);
-  for (const order of rows.slice(0, limit)) {
+  console.log(`Orders returned: ${rows.length} across ${result.pages} page${result.pages === 1 ? "" : "s"}`);
+  for (const order of rows.slice(0, PREVIEW_ROWS)) {
     const business = order.Retailer?.Business || {};
     const items = order.OrderItems || [];
     console.log([
@@ -120,7 +131,58 @@ async function runOrders(limit = 25) {
       order.customInvoiceNumber ? `invoice ${order.customInvoiceNumber}` : "",
     ].filter(Boolean).join(" | "));
   }
+  if (rows.length > PREVIEW_ROWS) console.log(`  … ${rows.length - PREVIEW_ROWS} more orders saved to raw JSON`);
+  printPaginationDiagnostics(result);
   console.log(`Raw JSON: ${path.relative(process.cwd(), path.join(OUT_DIR, "orders.json"))}`);
+}
+
+async function getAllPages(endpoint, extraParams = {}) {
+  const allRows = [];
+  const seenIds = new Set();
+  let offset = 0;
+  let pages = 0;
+  let duplicateIds = 0;
+  let finalPageSize = 0;
+
+  while (pages < MAX_PAGES) {
+    const url = new URL(endpoint, BASE_URL);
+    url.searchParams.set("limit", String(PAGE_SIZE));
+    url.searchParams.set("offset", String(offset));
+    for (const [key, value] of Object.entries(extraParams)) url.searchParams.set(key, String(value));
+
+    const body = await getJson(url);
+    const rows = normalizeData(body);
+    pages += 1;
+    finalPageSize = rows.length;
+
+    if (!rows.length) break;
+
+    for (const row of rows) {
+      if (row?.id != null) {
+        const key = String(row.id);
+        if (seenIds.has(key)) duplicateIds += 1;
+        else seenIds.add(key);
+      }
+      allRows.push(row);
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += rows.length;
+  }
+
+  if (pages >= MAX_PAGES && finalPageSize >= PAGE_SIZE) {
+    fail(`Pagination stopped at safety limit of ${MAX_PAGES} pages. Increase SELLAR_TEST_MAX_PAGES if this dataset is genuinely larger.`);
+  }
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    endpoint,
+    pageSize: PAGE_SIZE,
+    pages,
+    count: allRows.length,
+    duplicateIds,
+    data: allRows,
+  };
 }
 
 async function runSingle(prefix, endpoint, summarizer) {
@@ -185,7 +247,7 @@ function summarizeOrderResponse(body) {
 }
 
 async function getJson(endpoint) {
-  const url = new URL(endpoint, BASE_URL);
+  const url = endpoint instanceof URL ? endpoint : new URL(endpoint, BASE_URL);
   const response = await fetch(url, {
     method: "GET",
     headers: {
@@ -201,7 +263,7 @@ async function getJson(endpoint) {
   catch { body = { raw: text }; }
 
   if (!response.ok) {
-    console.error(`Sellar GET ${url.pathname} failed: ${response.status} ${response.statusText}`);
+    console.error(`Sellar GET ${url.pathname}${url.search} failed: ${response.status} ${response.statusText}`);
     console.dir(body, { depth: 4 });
     process.exit(1);
   }
@@ -223,6 +285,11 @@ function normalizeData(body) {
 function unwrapSingle(body) {
   if (body && typeof body === "object" && "data" in body) return body.data;
   return body;
+}
+
+function printPaginationDiagnostics(result) {
+  if (result.duplicateIds) console.log(`WARNING: ${result.duplicateIds} duplicate record id${result.duplicateIds === 1 ? "" : "s"} encountered across pages.`);
+  else console.log("Pagination check: no duplicate IDs encountered.");
 }
 
 function summarizeProperties(properties) {
