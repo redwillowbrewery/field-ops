@@ -1,0 +1,6 @@
+const BASE_URL=process.env.SELLAR_API_BASE_URL||"https://api.sellar.io";
+const TOKEN=process.env.SELLAR_API_TOKEN;
+
+type SellarProduct={id:number;name?:string;sku?:string;containerType?:string;packQuantity?:number;volume?:number;stock?:number;availableStock?:number;imageUrl?:string|null;heroImageUrl?:string|null;Parent?:{id?:number;name?:string;description?:string;abv?:number;imageUrl?:string|null;heroImageUrl?:string|null;glutenFree?:boolean;vegan?:boolean;lactoseFree?:boolean}|null};
+
+export async function getAvailableSellarProducts(){if(!TOKEN)throw new Error("SELLAR_API_TOKEN is not configured");const all:SellarProduct[]=[];const limit=100;for(let offset=0;offset<100000;offset+=limit){const url=new URL("/products",BASE_URL);url.searchParams.set("limit",String(limit));url.searchParams.set("offset",String(offset));const response=await fetch(url,{headers:{Authorization:`Bearer ${TOKEN}`,Accept:"application/json","User-Agent":"RedWillow-FieldOps/1.0"},next:{revalidate:300}});if(!response.ok)throw new Error(`Sellar products failed: ${response.status}`);const body=await response.json();const rows=Array.isArray(body)?body:Array.isArray(body?.data)?body.data:Array.isArray(body?.rows)?body.rows:[];all.push(...rows);if(rows.length<limit)break;}return all.filter(p=>Number(p.availableStock??p.stock??0)>0)}
