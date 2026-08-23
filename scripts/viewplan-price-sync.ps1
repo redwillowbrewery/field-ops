@@ -11,32 +11,41 @@ $baseUrl = $SupabaseUrl.TrimEnd('/')
 $userAgent = "RedWillow-ViewPlan-Sync/1.0"
 $headers = @{
     apikey = $ServiceRoleKey
+    "Content-Type" = "application/json; charset=utf-8"
 }
 
-function ConvertTo-ApiJson($body) {
-    # Windows PowerShell 5.1 can pipeline-enumerate some collection types into
-    # ConvertTo-Json. -InputObject preserves a single hashtable/object as JSON.
-    $json = ConvertTo-Json -InputObject $body -Depth 8 -Compress
-    if ([string]::IsNullOrWhiteSpace($json)) { throw "JSON serialization produced an empty request body." }
-    return $json
-}
-function Invoke-SupaGet([string]$path) {
-    return Invoke-RestMethod -Method Get -Uri "$baseUrl/rest/v1/$path" -Headers $headers -UserAgent $userAgent
-}
-function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") {
+function Invoke-SupaRequest([string]$method, [string]$path, $body = $null, [string]$prefer = $null) {
     $h = @{} + $headers
-    $h["Prefer"] = $prefer
-    $json = ConvertTo-ApiJson $body
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
-    return Invoke-RestMethod -Method Post -Uri "$baseUrl/rest/v1/$path" -Headers $h -ContentType "application/json; charset=utf-8" -Body $bytes -UserAgent $userAgent
+    if ($prefer) { $h["Prefer"] = $prefer }
+    $args = @{
+        Method = $method
+        Uri = "$baseUrl/rest/v1/$path"
+        Headers = $h
+        UserAgent = $userAgent
+    }
+    if ($null -ne $body) {
+        $json = ConvertTo-Json -InputObject $body -Depth 8 -Compress
+        $args["Body"] = [System.Text.Encoding]::UTF8.GetBytes($json)
+        $args["ContentType"] = "application/json; charset=utf-8"
+    }
+    try {
+        return Invoke-RestMethod @args
+    }
+    catch {
+        $detail = $_.Exception.Message
+        try {
+            if ($_.Exception.Response) {
+                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $responseBody = $reader.ReadToEnd()
+                if ($responseBody) { $detail = "$detail`n$responseBody" }
+            }
+        } catch {}
+        throw "Supabase $method $path failed:`n$detail"
+    }
 }
-function Invoke-SupaPatch([string]$path, $body) {
-    $h = @{} + $headers
-    $h["Prefer"] = "return=minimal"
-    $json = ConvertTo-ApiJson $body
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
-    Invoke-RestMethod -Method Patch -Uri "$baseUrl/rest/v1/$path" -Headers $h -ContentType "application/json; charset=utf-8" -Body $bytes -UserAgent $userAgent | Out-Null
-}
+function Invoke-SupaGet([string]$path) { return Invoke-SupaRequest "Get" $path }
+function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") { return Invoke-SupaRequest "Post" $path $body $prefer }
+function Invoke-SupaPatch([string]$path, $body) { Invoke-SupaRequest "Patch" $path $body "return=minimal" | Out-Null }
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
     if ($null -eq $value -or $value -is [DBNull]) { return $null }
@@ -60,6 +69,7 @@ function PackageCount([string]$packageType) {
     if ($packageType -match "(?i)Cans\s*\((\d+)\s*x") { return [int]$matches[1] }
     return 1
 }
+function UrlEncode([string]$value) { return [uri]::EscapeDataString($value) }
 
 Write-Host "Field Ops - ViewPlan canonical commercial sync"
 Write-Host "----------------------------------------------"
@@ -148,11 +158,11 @@ foreach ($group in $distinctProducts) {
         })
         if ($created.Count -ne 1) { throw "Could not create canonical product for ViewPlan brew_type_id $externalId" }
         $productId = [string]$created[0].id
-        Invoke-SupaPost "product_external_ids" @{
+        Invoke-SupaPost "product_external_ids?on_conflict=system,external_id" @{
             product_id = $productId
             system = "viewplan"
             external_id = $externalId
-        } "return=minimal" | Out-Null
+        } "resolution=merge-duplicates,return=minimal" | Out-Null
         $productMap[$externalId] = $productId
     }
     else {
@@ -185,15 +195,26 @@ foreach ($row in $rows) {
         source_updated_at = $syncTime
         updated_at = $syncTime
     }
+
     if (-not $variantId) {
-        $created = @(Invoke-SupaPost "product_variants" $variantBody)
-        if ($created.Count -ne 1) { throw "Could not create variant $variantExternalId" }
-        $variantId = [string]$created[0].id
-        Invoke-SupaPost "product_variant_external_ids" @{
+        # Recover cleanly from a previous partial run where the canonical variant was
+        # created but its external-ID mapping was not yet written.
+        $pkg = UrlEncode $row.packaging_type
+        $existing = @(Invoke-SupaGet "product_variants?product_id=eq.$productId&package_type=eq.$pkg&select=id")
+        if ($existing.Count -gt 0) {
+            $variantId = [string]$existing[0].id
+        }
+        else {
+            $created = @(Invoke-SupaPost "product_variants" $variantBody)
+            if ($created.Count -ne 1) { throw "Could not create variant $variantExternalId" }
+            $variantId = [string]$created[0].id
+        }
+
+        Invoke-SupaPost "product_variant_external_ids?on_conflict=system,external_id" @{
             product_variant_id = $variantId
             system = "viewplan"
             external_id = $variantExternalId
-        } "return=minimal" | Out-Null
+        } "resolution=merge-duplicates,return=minimal" | Out-Null
         $variantMap[$variantExternalId] = $variantId
     }
     else {
