@@ -89,6 +89,12 @@ function Get-ExistingVariantMapping([string]$externalId) {
     if ($found.Count -gt 0) { return [string]$found[0].product_variant_id }
     return $null
 }
+function Get-CanonicalVariantId([string]$productId, [string]$packageType) {
+    $pkg = UrlEncode $packageType
+    $found = @(Invoke-SupaGet "product_variants?product_id=eq.$productId&package_type=eq.$pkg&select=id")
+    if ($found.Count -gt 0) { return [string]$found[0].id }
+    return $null
+}
 
 Write-Host "Field Ops - ViewPlan canonical commercial sync"
 Write-Host "----------------------------------------------"
@@ -224,15 +230,14 @@ foreach ($row in $rows) {
     }
 
     if (-not $variantId) {
-        $pkg = UrlEncode $row.packaging_type
-        $existing = @(Invoke-SupaGet "product_variants?product_id=eq.$productId&package_type=eq.$pkg&select=id")
-        if ($existing.Count -gt 0) {
-            $candidateVariantId = [string]$existing[0].id
-        }
-        else {
-            $created = @(Invoke-SupaPost "product_variants" $variantBody)
-            if ($created.Count -ne 1) { throw "Could not create variant $variantExternalId" }
-            $candidateVariantId = [string]$created[0].id
+        $candidateVariantId = Get-CanonicalVariantId $productId $row.packaging_type
+
+        if (-not $candidateVariantId) {
+            Invoke-SupaPost "product_variants" $variantBody "return=minimal" | Out-Null
+            $candidateVariantId = Get-CanonicalVariantId $productId $row.packaging_type
+            if (-not $candidateVariantId) {
+                throw "Canonical variant '$variantExternalId' was not readable after insert."
+            }
         }
 
         try {
