@@ -53,17 +53,17 @@ function Invoke-SupaGet([string]$path) { return Invoke-SupaRequest "Get" $path }
 function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") { return Invoke-SupaRequest "Post" $path $body $prefer }
 function Invoke-SupaPatch([string]$path, $body) { Invoke-SupaRequest "Patch" $path $body "return=minimal" | Out-Null }
 function Invoke-SupaGetAll([string]$path) {
-    $all = New-Object System.Collections.Generic.List[object]
+    $all = @()
     $offset = 0
     $limit = 1000
     while ($true) {
         $separator = if ($path.Contains("?")) { "&" } else { "?" }
         $page = @(Invoke-SupaGet "$path${separator}limit=$limit&offset=$offset")
-        foreach ($row in $page) { $all.Add($row) }
+        if ($page.Count -gt 0) { $all += $page }
         if ($page.Count -lt $limit) { break }
         $offset += $limit
     }
-    return $all.ToArray()
+    return $all
 }
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
