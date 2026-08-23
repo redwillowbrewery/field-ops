@@ -11,23 +11,31 @@ $baseUrl = $SupabaseUrl.TrimEnd('/')
 $userAgent = "RedWillow-ViewPlan-Sync/1.0"
 $headers = @{
     apikey = $ServiceRoleKey
-    "Content-Type" = "application/json"
 }
 
+function ConvertTo-ApiJson($body) {
+    # Windows PowerShell 5.1 can pipeline-enumerate some collection types into
+    # ConvertTo-Json. -InputObject preserves a single hashtable/object as JSON.
+    $json = ConvertTo-Json -InputObject $body -Depth 8 -Compress
+    if ([string]::IsNullOrWhiteSpace($json)) { throw "JSON serialization produced an empty request body." }
+    return $json
+}
 function Invoke-SupaGet([string]$path) {
     return Invoke-RestMethod -Method Get -Uri "$baseUrl/rest/v1/$path" -Headers $headers -UserAgent $userAgent
 }
 function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") {
     $h = @{} + $headers
     $h["Prefer"] = $prefer
-    $json = $body | ConvertTo-Json -Depth 8 -Compress
-    return Invoke-RestMethod -Method Post -Uri "$baseUrl/rest/v1/$path" -Headers $h -Body $json -UserAgent $userAgent
+    $json = ConvertTo-ApiJson $body
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    return Invoke-RestMethod -Method Post -Uri "$baseUrl/rest/v1/$path" -Headers $h -ContentType "application/json; charset=utf-8" -Body $bytes -UserAgent $userAgent
 }
 function Invoke-SupaPatch([string]$path, $body) {
     $h = @{} + $headers
     $h["Prefer"] = "return=minimal"
-    $json = $body | ConvertTo-Json -Depth 8 -Compress
-    Invoke-RestMethod -Method Patch -Uri "$baseUrl/rest/v1/$path" -Headers $h -Body $json -UserAgent $userAgent | Out-Null
+    $json = ConvertTo-ApiJson $body
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    Invoke-RestMethod -Method Patch -Uri "$baseUrl/rest/v1/$path" -Headers $h -ContentType "application/json; charset=utf-8" -Body $bytes -UserAgent $userAgent | Out-Null
 }
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
@@ -120,7 +128,6 @@ $rs.Close()
 if ($rows.Count -eq 0) { throw "No saleable ViewPlan product/package rows were returned." }
 Write-Host "Saleable product/package rows: $($rows.Count)"
 
-# Existing ViewPlan product mappings.
 $productMap = @{}
 $existingProductMappings = @(Invoke-SupaGet "product_external_ids?system=eq.viewplan&select=external_id,product_id")
 foreach ($m in $existingProductMappings) { $productMap[[string]$m.external_id] = [string]$m.product_id }
@@ -160,7 +167,6 @@ foreach ($group in $distinctProducts) {
 }
 Write-Host "Canonical products resolved: $($productMap.Count)"
 
-# Existing ViewPlan variant mappings, keyed as brew_type_id|packaging_type.
 $variantMap = @{}
 $existingVariantMappings = @(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&select=external_id,product_variant_id")
 foreach ($m in $existingVariantMappings) { $variantMap[[string]$m.external_id] = [string]$m.product_variant_id }
