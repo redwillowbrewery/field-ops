@@ -35,9 +35,12 @@ function Invoke-SupaRequest([string]$method, [string]$path, $body = $null, [stri
         $detail = $_.Exception.Message
         try {
             if ($_.Exception.Response) {
-                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-                $responseBody = $reader.ReadToEnd()
-                if ($responseBody) { $detail = "$detail`n$responseBody" }
+                $stream = $_.Exception.Response.GetResponseStream()
+                if ($stream) {
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $responseBody = $reader.ReadToEnd()
+                    if ($responseBody) { $detail = "$detail`n$responseBody" }
+                }
             }
         } catch {}
         throw "Supabase $method $path failed:`n$detail"
@@ -70,6 +73,19 @@ function PackageCount([string]$packageType) {
     return 1
 }
 function UrlEncode([string]$value) { return [uri]::EscapeDataString($value) }
+
+function Get-ProductMapping([string]$externalId) {
+    $encoded = UrlEncode $externalId
+    $rows = @(Invoke-SupaGet "product_external_ids?system=eq.viewplan&external_id=eq.$encoded&select=product_id")
+    if ($rows.Count -gt 0) { return [string]$rows[0].product_id }
+    return $null
+}
+function Get-VariantMapping([string]$externalId) {
+    $encoded = UrlEncode $externalId
+    $rows = @(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&external_id=eq.$encoded&select=product_variant_id")
+    if ($rows.Count -gt 0) { return [string]$rows[0].product_variant_id }
+    return $null
+}
 
 Write-Host "Field Ops - ViewPlan canonical commercial sync"
 Write-Host "----------------------------------------------"
@@ -139,14 +155,13 @@ if ($rows.Count -eq 0) { throw "No saleable ViewPlan product/package rows were r
 Write-Host "Saleable product/package rows: $($rows.Count)"
 
 $productMap = @{}
-$existingProductMappings = @(Invoke-SupaGet "product_external_ids?system=eq.viewplan&select=external_id,product_id")
-foreach ($m in $existingProductMappings) { $productMap[[string]$m.external_id] = [string]$m.product_id }
-
 $distinctProducts = $rows | Group-Object brew_type_id
+$productIndex = 0
 foreach ($group in $distinctProducts) {
+    $productIndex++
     $sample = $group.Group[0]
     $externalId = [string]$sample.brew_type_id
-    $productId = $productMap[$externalId]
+    $productId = Get-ProductMapping $externalId
     $sourceUpdated = if ($sample.brew_lud) { ([DateTime]$sample.brew_lud).ToUniversalTime().ToString("o") } else { $syncTime }
 
     if (-not $productId) {
@@ -158,12 +173,11 @@ foreach ($group in $distinctProducts) {
         })
         if ($created.Count -ne 1) { throw "Could not create canonical product for ViewPlan brew_type_id $externalId" }
         $productId = [string]$created[0].id
-        Invoke-SupaPost "product_external_ids?on_conflict=system,external_id" @{
+        Invoke-SupaPost "product_external_ids" @{
             product_id = $productId
             system = "viewplan"
             external_id = $externalId
-        } "resolution=merge-duplicates,return=minimal" | Out-Null
-        $productMap[$externalId] = $productId
+        } "return=minimal" | Out-Null
     }
     else {
         Invoke-SupaPatch "products?id=eq.$productId" @{
@@ -174,16 +188,17 @@ foreach ($group in $distinctProducts) {
             updated_at = $syncTime
         }
     }
+    $productMap[$externalId] = $productId
+    if (($productIndex % 100) -eq 0) { Write-Host "Products resolved: $productIndex/$($distinctProducts.Count)" }
 }
 Write-Host "Canonical products resolved: $($productMap.Count)"
 
 $variantMap = @{}
-$existingVariantMappings = @(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&select=external_id,product_variant_id")
-foreach ($m in $existingVariantMappings) { $variantMap[[string]$m.external_id] = [string]$m.product_variant_id }
-
+$variantIndex = 0
 foreach ($row in $rows) {
+    $variantIndex++
     $variantExternalId = "$($row.brew_type_id)|$($row.packaging_type)"
-    $variantId = $variantMap[$variantExternalId]
+    $variantId = Get-VariantMapping $variantExternalId
     $productId = $productMap[[string]$row.brew_type_id]
     $variantBody = @{
         product_id = $productId
@@ -197,8 +212,8 @@ foreach ($row in $rows) {
     }
 
     if (-not $variantId) {
-        # Recover cleanly from a previous partial run where the canonical variant was
-        # created but its external-ID mapping was not yet written.
+        # A previous partial run may have created the canonical variant before writing
+        # its external-ID mapping. Recover that row using the canonical unique key.
         $pkg = UrlEncode $row.packaging_type
         $existing = @(Invoke-SupaGet "product_variants?product_id=eq.$productId&package_type=eq.$pkg&select=id")
         if ($existing.Count -gt 0) {
@@ -210,16 +225,19 @@ foreach ($row in $rows) {
             $variantId = [string]$created[0].id
         }
 
-        Invoke-SupaPost "product_variant_external_ids?on_conflict=system,external_id" @{
+        # We already queried this exact external ID and know it is absent, so a normal
+        # insert is safer than an upsert and avoids PostgREST on_conflict ambiguity.
+        Invoke-SupaPost "product_variant_external_ids" @{
             product_variant_id = $variantId
             system = "viewplan"
             external_id = $variantExternalId
-        } "resolution=merge-duplicates,return=minimal" | Out-Null
-        $variantMap[$variantExternalId] = $variantId
+        } "return=minimal" | Out-Null
     }
     else {
         Invoke-SupaPatch "product_variants?id=eq.$variantId" $variantBody
     }
+    $variantMap[$variantExternalId] = $variantId
+    if (($variantIndex % 250) -eq 0) { Write-Host "Variants resolved: $variantIndex/$($rows.Count)" }
 }
 Write-Host "Canonical variants resolved: $($variantMap.Count)"
 
@@ -251,7 +269,7 @@ $chunkSize = 250
 for ($i = 0; $i -lt $priceRows.Count; $i += $chunkSize) {
     $end = [Math]::Min($i + $chunkSize - 1, $priceRows.Count - 1)
     $chunk = @($priceRows[$i..$end])
-    Invoke-SupaPost "product_prices?on_conflict=product_variant_id,price_list_id" $chunk "resolution=merge-duplicates,return=minimal" | Out-Null
+    Invoke-SupaPost "product_prices?on_conflict=product_variant_id%2Cprice_list_id" $chunk "resolution=merge-duplicates,return=minimal" | Out-Null
     Write-Host "Prices synced: $($end + 1)/$($priceRows.Count)"
 }
 
