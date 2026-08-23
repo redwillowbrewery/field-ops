@@ -8,7 +8,7 @@ if (-not $SupabaseUrl) { throw "NEXT_PUBLIC_SUPABASE_URL is not set." }
 if (-not $ServiceRoleKey) { throw "SUPABASE_SERVICE_ROLE_KEY is not set." }
 
 $baseUrl = $SupabaseUrl.TrimEnd('/')
-$userAgent = "RedWillow-ViewPlan-Customer-Pricing-Sync/1.0"
+$userAgent = "RedWillow-ViewPlan-Customer-Pricing-Sync/1.1"
 $headers = @{ apikey = $ServiceRoleKey; "Content-Type" = "application/json; charset=utf-8" }
 
 function Invoke-SupaRequest([string]$method,[string]$path,$body=$null,[string]$prefer=$null){
@@ -31,15 +31,14 @@ Write-Host "Field Ops - ViewPlan customer pricing sync"
 Write-Host "------------------------------------------"
 Write-Host "ViewPlan: READ ONLY"
 Write-Host "Accounts: exact-name match only"
+Write-Host "Pricing: exact product overrides + (all) package rules"
 
 try{$access=[Runtime.InteropServices.Marshal]::GetActiveObject("Access.Application")}catch{throw "Open and log into ViewPlan first, then run this script from 32-bit PowerShell."}
 $db=$access.CurrentDb();$syncTime=[DateTime]::UtcNow.ToString("o")
 
-# Price-list UUIDs.
 $priceLists=@{}
 for($n=1;$n-le10;$n++){$pl=@(Invoke-SupaGet "price_lists?source_system=eq.viewplan&source_external_id=eq.$n&select=id");$id=FirstGuid $pl "id";if(-not$id){throw "Wholesale price list $n is missing."};$priceLists[[string]$n]=$id}
 
-# Read active ViewPlan customers and resolve canonical accounts by exact name.
 $rs=$db.OpenRecordset(@"
 SELECT customer_id,customer_name,discount,wholesale_price_no,use_parent_pricing,parent_customer_id,discount_application,lud
 FROM tblCustomer
@@ -61,7 +60,6 @@ foreach($c in $customers){
 Write-Host "Matched customers:   $matched"
 Write-Host "Unmatched customers: $unmatched"
 
-# Write account pricing in a second pass so parent mappings are available.
 $pricingWritten=0
 foreach($c in $customers){
     $accountId=$accountByVp[$c.customer_id];if(-not$accountId){continue}
@@ -75,36 +73,46 @@ foreach($c in $customers){
 }
 Write-Host "Account pricing rows: $pricingWritten"
 
-# Customer-specific fixed/formula prices. Only sync rows whose customer and canonical ViewPlan variant are both mapped.
 $rs=$db.OpenRecordset(@"
-SELECT customer_id,brew_type_id,packaging_type,price,is_available,use_formula,price_formula,apply_line_discount
-FROM tblCustomer_Prices
-WHERE is_available=True
-ORDER BY customer_id,brew_type_id,packaging_type
+SELECT cp.customer_id,cp.brew_type_id,bt.brew_product_name,cp.packaging_type,cp.price,cp.use_formula,cp.price_formula,cp.apply_line_discount
+FROM tblCustomer_Prices AS cp
+LEFT JOIN tblBrew_Type AS bt ON cp.brew_type_id=bt.brew_type_id
+WHERE cp.is_available=True
+ORDER BY cp.customer_id,cp.brew_type_id,cp.packaging_type
 "@)
-$overrideCount=0;$overrideSkipped=0;$overrideIndex=0
+$overrideCount=0;$packageRuleCount=0;$overrideSkipped=0;$overrideIndex=0
 while(-not$rs.EOF){
     $overrideIndex++
     $customerId=[string](DbValue $rs "customer_id");$accountId=$accountByVp[$customerId]
     if($accountId){
-        $brew=[string](DbValue $rs "brew_type_id");$pkg=[string](DbValue $rs "packaging_type");$vpKey=UrlEncode "$brew|$pkg"
-        $mapped=@(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&external_id=eq.$vpKey&select=product_variant_id")
-        $variantId=FirstGuid $mapped "product_variant_id"
-        if($variantId){
-            $useFormula=[bool](DbValue $rs "use_formula");$fixed=if($useFormula){$null}else{DbValue $rs "price"};$formula=if($useFormula){[string](DbValue $rs "price_formula")}else{$null}
-            Invoke-SupaPost "account_price_overrides?on_conflict=account_id%2Cproduct_variant_id" @{
-                account_id=$accountId;product_variant_id=$variantId;fixed_price=$fixed;formula=$formula;apply_line_discount=[bool](DbValue $rs "apply_line_discount");source_system="viewplan";source_updated_at=$syncTime;updated_at=$syncTime
+        $brew=[string](DbValue $rs "brew_type_id");$brewName=[string](DbValue $rs "brew_product_name");$pkg=[string](DbValue $rs "packaging_type")
+        $useFormula=[bool](DbValue $rs "use_formula");$fixed=if($useFormula){$null}else{DbValue $rs "price"};$formula=if($useFormula){[string](DbValue $rs "price_formula")}else{$null};$apply=[bool](DbValue $rs "apply_line_discount")
+
+        if($brewName.Trim().ToLowerInvariant()-eq"(all)"){
+            Invoke-SupaPost "account_package_pricing_rules?on_conflict=account_id%2Cpackage_type" @{
+                account_id=$accountId;package_type=$pkg;fixed_price=$fixed;formula=$formula;apply_line_discount=$apply;source_system="viewplan";source_updated_at=$syncTime;updated_at=$syncTime
             } "resolution=merge-duplicates,return=minimal"|Out-Null
-            $overrideCount++
-        }else{$overrideSkipped++}
+            $packageRuleCount++
+        }else{
+            $vpKey=UrlEncode "$brew|$pkg"
+            $mapped=@(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&external_id=eq.$vpKey&select=product_variant_id")
+            $variantId=FirstGuid $mapped "product_variant_id"
+            if($variantId){
+                Invoke-SupaPost "account_price_overrides?on_conflict=account_id%2Cproduct_variant_id" @{
+                    account_id=$accountId;product_variant_id=$variantId;fixed_price=$fixed;formula=$formula;apply_line_discount=$apply;source_system="viewplan";source_updated_at=$syncTime;updated_at=$syncTime
+                } "resolution=merge-duplicates,return=minimal"|Out-Null
+                $overrideCount++
+            }else{$overrideSkipped++}
+        }
     }else{$overrideSkipped++}
-    if(($overrideIndex%500)-eq0){Write-Host "Overrides processed: $overrideIndex"}
+    if(($overrideIndex%500)-eq0){Write-Host "Pricing rules processed: $overrideIndex"}
     $rs.MoveNext()
 }
 $rs.Close()
 
 Write-Host ""
 Write-Host "ViewPlan customer pricing sync complete."
-Write-Host "Accounts priced:      $pricingWritten"
-Write-Host "Overrides synced:     $overrideCount"
-Write-Host "Overrides skipped:    $overrideSkipped"
+Write-Host "Accounts priced:       $pricingWritten"
+Write-Host "Exact overrides synced:$overrideCount"
+Write-Host "Package rules synced:  $packageRuleCount"
+Write-Host "Overrides skipped:     $overrideSkipped"
