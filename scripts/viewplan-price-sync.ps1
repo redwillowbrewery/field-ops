@@ -63,7 +63,7 @@ function Invoke-SupaGetAll([string]$path) {
         if ($page.Count -lt $limit) { break }
         $offset += $limit
     }
-    return @($all)
+    return $all.ToArray()
 }
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
@@ -157,8 +157,6 @@ $rs.Close()
 if ($rows.Count -eq 0) { throw "No saleable ViewPlan product/package rows were returned." }
 Write-Host "Saleable product/package rows: $($rows.Count)"
 
-# Load all existing mappings once. This is much faster than one REST lookup per item
-# and remains correct beyond PostgREST's normal 1,000-row response size.
 $productMap = @{}
 $productMappings = @(Invoke-SupaGetAll "product_external_ids?system=eq.viewplan&select=external_id,product_id")
 foreach ($m in $productMappings) { $productMap[[string]$m.external_id] = [string]$m.product_id }
