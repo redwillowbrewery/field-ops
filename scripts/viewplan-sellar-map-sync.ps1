@@ -8,7 +8,7 @@ if (-not $SupabaseUrl) { throw "NEXT_PUBLIC_SUPABASE_URL is not set." }
 if (-not $ServiceRoleKey) { throw "SUPABASE_SERVICE_ROLE_KEY is not set." }
 
 $baseUrl = $SupabaseUrl.TrimEnd('/')
-$userAgent = "RedWillow-ViewPlan-Sellar-Map-Sync/1.1"
+$userAgent = "RedWillow-ViewPlan-Sellar-Map-Sync/1.2"
 $headers = @{
     apikey = $ServiceRoleKey
     "Content-Type" = "application/json; charset=utf-8"
@@ -56,6 +56,19 @@ function DbValue($recordset, [string]$name) {
     if ($null -eq $value -or $value -is [DBNull]) { return $null }
     return $value
 }
+function Get-FirstField([string]$path, [string]$field) {
+    $result = Invoke-SupaGet $path
+    $first = $result | Select-Object -First 1
+    if ($null -eq $first) { return $null }
+    $prop = $first.PSObject.Properties[$field]
+    if ($null -eq $prop -or $null -eq $prop.Value) { return $null }
+    return [string]$prop.Value
+}
+function Is-ValidUuid([string]$value) {
+    if ([string]::IsNullOrWhiteSpace($value)) { return $false }
+    $guid = [Guid]::Empty
+    return [Guid]::TryParse($value, [ref]$guid)
+}
 
 Write-Host "Field Ops - ViewPlan Sellar mapping sync"
 Write-Host "-----------------------------------------"
@@ -97,40 +110,38 @@ Write-Host "Mapped ViewPlan rows: $($rows.Count)"
 $linked = 0
 $relinked = 0
 $missingCanonical = 0
+$invalidCanonical = 0
 $index = 0
 
 foreach ($row in $rows) {
     $index++
     $viewplanExternalId = "$($row.brew_type_id)|$($row.packaging_type)"
     $vpEncoded = UrlEncode $viewplanExternalId
-    $vp = @(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&external_id=eq.$vpEncoded&select=product_variant_id")
-    if ($vp.Count -eq 0) {
+    $variantId = Get-FirstField "product_variant_external_ids?system=eq.viewplan&external_id=eq.$vpEncoded&select=product_variant_id&limit=1" "product_variant_id"
+
+    if (-not $variantId) {
         Write-Warning "No canonical ViewPlan variant mapping for $viewplanExternalId"
         $missingCanonical++
         continue
     }
+    if (-not (Is-ValidUuid $variantId)) {
+        Write-Warning "Invalid canonical UUID '$variantId' for ViewPlan key $viewplanExternalId"
+        $invalidCanonical++
+        continue
+    }
 
-    $variantId = [string]$vp[0].product_variant_id
     $sellarId = [string]$row.sellar_variant_id
     $sellarEncoded = UrlEncode $sellarId
-    $existingSellar = @(Invoke-SupaGet "product_variant_external_ids?system=eq.sellar&external_id=eq.$sellarEncoded&select=product_variant_id")
-    $wasDifferent = $existingSellar.Count -gt 0 -and [string]$existingSellar[0].product_variant_id -ne $variantId
+    $existingVariantId = Get-FirstField "product_variant_external_ids?system=eq.sellar&external_id=eq.$sellarEncoded&select=product_variant_id&limit=1" "product_variant_id"
+    $wasDifferent = $existingVariantId -and $existingVariantId -ne $variantId
 
-    # ViewPlan's tblImport_Product_Map is the authoritative integration mapping.
-    # Upsert on (system, external_id) so a stale/fuzzy Sellar mapping is corrected
-    # to the canonical variant identified by ViewPlan's brew_type + package key.
     Invoke-SupaPost "product_variant_external_ids?on_conflict=system%2Cexternal_id" @{
         product_variant_id = $variantId
         system = "sellar"
         external_id = $sellarId
     } "resolution=merge-duplicates,return=minimal" | Out-Null
 
-    if ($wasDifferent) {
-        $relinked++
-    }
-    else {
-        $linked++
-    }
+    if ($wasDifferent) { $relinked++ } else { $linked++ }
 
     if (($index % 100) -eq 0) { Write-Host "Processed: $index/$($rows.Count)" }
 }
@@ -140,3 +151,4 @@ Write-Host "ViewPlan Sellar mapping sync complete."
 Write-Host "Already correct/new:   $linked"
 Write-Host "Corrected mappings:    $relinked"
 Write-Host "Missing canonical:     $missingCanonical"
+Write-Host "Invalid canonical IDs: $invalidCanonical"
