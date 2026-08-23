@@ -52,19 +52,6 @@ function Invoke-SupaRequest([string]$method, [string]$path, $body = $null, [stri
 function Invoke-SupaGet([string]$path) { return Invoke-SupaRequest "Get" $path }
 function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") { return Invoke-SupaRequest "Post" $path $body $prefer }
 function Invoke-SupaPatch([string]$path, $body) { Invoke-SupaRequest "Patch" $path $body "return=minimal" | Out-Null }
-function Invoke-SupaGetAll([string]$path) {
-    $all = @()
-    $offset = 0
-    $limit = 1000
-    while ($true) {
-        $separator = if ($path.Contains("?")) { "&" } else { "?" }
-        $page = @(Invoke-SupaGet "$path${separator}limit=$limit&offset=$offset")
-        if ($page.Count -gt 0) { $all += $page }
-        if ($page.Count -lt $limit) { break }
-        $offset += $limit
-    }
-    return $all
-}
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
     if ($null -eq $value -or $value -is [DBNull]) { return $null }
@@ -89,6 +76,19 @@ function PackageCount([string]$packageType) {
     return 1
 }
 function UrlEncode([string]$value) { return [uri]::EscapeDataString($value) }
+
+function Get-ExistingProductMapping([string]$externalId) {
+    $encoded = UrlEncode $externalId
+    $found = @(Invoke-SupaGet "product_external_ids?system=eq.viewplan&external_id=eq.$encoded&select=product_id")
+    if ($found.Count -gt 0) { return [string]$found[0].product_id }
+    return $null
+}
+function Get-ExistingVariantMapping([string]$externalId) {
+    $encoded = UrlEncode $externalId
+    $found = @(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&external_id=eq.$encoded&select=product_variant_id")
+    if ($found.Count -gt 0) { return [string]$found[0].product_variant_id }
+    return $null
+}
 
 Write-Host "Field Ops - ViewPlan canonical commercial sync"
 Write-Host "----------------------------------------------"
@@ -158,17 +158,13 @@ if ($rows.Count -eq 0) { throw "No saleable ViewPlan product/package rows were r
 Write-Host "Saleable product/package rows: $($rows.Count)"
 
 $productMap = @{}
-$productMappings = @(Invoke-SupaGetAll "product_external_ids?system=eq.viewplan&select=external_id,product_id")
-foreach ($m in $productMappings) { $productMap[[string]$m.external_id] = [string]$m.product_id }
-Write-Host "Existing ViewPlan product mappings: $($productMap.Count)"
-
 $distinctProducts = $rows | Group-Object brew_type_id
 $productIndex = 0
 foreach ($group in $distinctProducts) {
     $productIndex++
     $sample = $group.Group[0]
     $externalId = [string]$sample.brew_type_id
-    $productId = $productMap[$externalId]
+    $productId = Get-ExistingProductMapping $externalId
     $sourceUpdated = if ($sample.brew_lud) { ([DateTime]$sample.brew_lud).ToUniversalTime().ToString("o") } else { $syncTime }
 
     if (-not $productId) {
@@ -179,37 +175,42 @@ foreach ($group in $distinctProducts) {
             source_updated_at = $sourceUpdated
         })
         if ($created.Count -ne 1) { throw "Could not create canonical product for ViewPlan brew_type_id $externalId" }
-        $productId = [string]$created[0].id
-        Invoke-SupaPost "product_external_ids" @{
-            product_id = $productId
-            system = "viewplan"
-            external_id = $externalId
-        } "return=minimal" | Out-Null
-        $productMap[$externalId] = $productId
-    }
-    else {
-        Invoke-SupaPatch "products?id=eq.$productId" @{
-            name = $sample.beer_name
-            abv = $sample.abv
-            status = "active"
-            source_updated_at = $sourceUpdated
-            updated_at = $syncTime
+        $candidateProductId = [string]$created[0].id
+
+        try {
+            Invoke-SupaPost "product_external_ids?on_conflict=system%2Cexternal_id" @{
+                product_id = $candidateProductId
+                system = "viewplan"
+                external_id = $externalId
+            } "resolution=ignore-duplicates,return=minimal" | Out-Null
         }
+        catch {
+            throw "Could not map ViewPlan product $externalId after creating candidate product $candidateProductId.`n$($_.Exception.Message)"
+        }
+
+        $productId = Get-ExistingProductMapping $externalId
+        if (-not $productId) { throw "ViewPlan product mapping $externalId was not readable after insert." }
     }
-    if (($productIndex % 250) -eq 0) { Write-Host "Products resolved: $productIndex/$($distinctProducts.Count)" }
+
+    Invoke-SupaPatch "products?id=eq.$productId" @{
+        name = $sample.beer_name
+        abv = $sample.abv
+        status = "active"
+        source_updated_at = $sourceUpdated
+        updated_at = $syncTime
+    }
+
+    $productMap[$externalId] = $productId
+    if (($productIndex % 100) -eq 0) { Write-Host "Products resolved: $productIndex/$($distinctProducts.Count)" }
 }
 Write-Host "Canonical products resolved: $($productMap.Count)"
 
 $variantMap = @{}
-$variantMappings = @(Invoke-SupaGetAll "product_variant_external_ids?system=eq.viewplan&select=external_id,product_variant_id")
-foreach ($m in $variantMappings) { $variantMap[[string]$m.external_id] = [string]$m.product_variant_id }
-Write-Host "Existing ViewPlan variant mappings: $($variantMap.Count)"
-
 $variantIndex = 0
 foreach ($row in $rows) {
     $variantIndex++
     $variantExternalId = "$($row.brew_type_id)|$($row.packaging_type)"
-    $variantId = $variantMap[$variantExternalId]
+    $variantId = Get-ExistingVariantMapping $variantExternalId
     $productId = $productMap[[string]$row.brew_type_id]
     $variantBody = @{
         product_id = $productId
@@ -226,40 +227,40 @@ foreach ($row in $rows) {
         $pkg = UrlEncode $row.packaging_type
         $existing = @(Invoke-SupaGet "product_variants?product_id=eq.$productId&package_type=eq.$pkg&select=id")
         if ($existing.Count -gt 0) {
-            $variantId = [string]$existing[0].id
+            $candidateVariantId = [string]$existing[0].id
         }
         else {
             $created = @(Invoke-SupaPost "product_variants" $variantBody)
             if ($created.Count -ne 1) { throw "Could not create variant $variantExternalId" }
-            $variantId = [string]$created[0].id
+            $candidateVariantId = [string]$created[0].id
         }
 
-        $mappingBody = @{
-            product_variant_id = $variantId
-            system = "viewplan"
-            external_id = $variantExternalId
-        }
         try {
-            Invoke-SupaPost "product_variant_external_ids" $mappingBody "return=minimal" | Out-Null
+            Invoke-SupaPost "product_variant_external_ids?on_conflict=system%2Cexternal_id" @{
+                product_variant_id = $candidateVariantId
+                system = "viewplan"
+                external_id = $variantExternalId
+            } "resolution=ignore-duplicates,return=minimal" | Out-Null
         }
         catch {
-            $safeJson = ConvertTo-Json -InputObject $mappingBody -Compress
-            throw "Variant mapping failed at row $variantIndex/$($rows.Count) for '$variantExternalId' (variant $variantId). Payload: $safeJson`n$($_.Exception.Message)"
+            throw "Variant mapping failed at row $variantIndex/$($rows.Count) for '$variantExternalId' (variant $candidateVariantId).`n$($_.Exception.Message)"
         }
-        $variantMap[$variantExternalId] = $variantId
+
+        $variantId = Get-ExistingVariantMapping $variantExternalId
+        if (-not $variantId) { throw "ViewPlan variant mapping '$variantExternalId' was not readable after insert." }
     }
-    else {
-        Invoke-SupaPatch "product_variants?id=eq.$variantId" $variantBody
-    }
+
+    Invoke-SupaPatch "product_variants?id=eq.$variantId" $variantBody
+    $variantMap[$variantExternalId] = $variantId
     if (($variantIndex % 250) -eq 0) { Write-Host "Variants resolved: $variantIndex/$($rows.Count)" }
 }
 Write-Host "Canonical variants resolved: $($variantMap.Count)"
 
 $priceListMap = @{}
-$priceLists = @(Invoke-SupaGetAll "price_lists?source_system=eq.viewplan&select=id,source_external_id")
-foreach ($p in $priceLists) { $priceListMap[[string]$p.source_external_id] = [string]$p.id }
 for ($n = 1; $n -le 10; $n++) {
-    if (-not $priceListMap[[string]$n]) { throw "Wholesale price list $n is missing. Apply the canonical commercial model migration first." }
+    $pl = @(Invoke-SupaGet "price_lists?source_system=eq.viewplan&source_external_id=eq.$n&select=id")
+    if ($pl.Count -eq 0) { throw "Wholesale price list $n is missing. Apply the canonical commercial model migration first." }
+    $priceListMap[[string]$n] = [string]$pl[0].id
 }
 
 $priceRows = New-Object System.Collections.Generic.List[object]
