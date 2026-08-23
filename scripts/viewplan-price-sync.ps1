@@ -8,26 +8,26 @@ if (-not $SupabaseUrl) { throw "NEXT_PUBLIC_SUPABASE_URL is not set." }
 if (-not $ServiceRoleKey) { throw "SUPABASE_SERVICE_ROLE_KEY is not set." }
 
 $baseUrl = $SupabaseUrl.TrimEnd('/')
+$userAgent = "RedWillow-ViewPlan-Sync/1.0"
 $headers = @{
     apikey = $ServiceRoleKey
-    Authorization = "Bearer $ServiceRoleKey"
     "Content-Type" = "application/json"
 }
 
 function Invoke-SupaGet([string]$path) {
-    return Invoke-RestMethod -Method Get -Uri "$baseUrl/rest/v1/$path" -Headers $headers
+    return Invoke-RestMethod -Method Get -Uri "$baseUrl/rest/v1/$path" -Headers $headers -UserAgent $userAgent
 }
 function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") {
     $h = @{} + $headers
     $h["Prefer"] = $prefer
     $json = $body | ConvertTo-Json -Depth 8 -Compress
-    return Invoke-RestMethod -Method Post -Uri "$baseUrl/rest/v1/$path" -Headers $h -Body $json
+    return Invoke-RestMethod -Method Post -Uri "$baseUrl/rest/v1/$path" -Headers $h -Body $json -UserAgent $userAgent
 }
 function Invoke-SupaPatch([string]$path, $body) {
     $h = @{} + $headers
     $h["Prefer"] = "return=minimal"
     $json = $body | ConvertTo-Json -Depth 8 -Compress
-    Invoke-RestMethod -Method Patch -Uri "$baseUrl/rest/v1/$path" -Headers $h -Body $json | Out-Null
+    Invoke-RestMethod -Method Patch -Uri "$baseUrl/rest/v1/$path" -Headers $h -Body $json -UserAgent $userAgent | Out-Null
 }
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
