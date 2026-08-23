@@ -32,23 +32,39 @@ function Invoke-SupaRequest([string]$method, [string]$path, $body = $null, [stri
         return Invoke-RestMethod @args
     }
     catch {
-        $detail = $_.Exception.Message
+        $parts = New-Object System.Collections.Generic.List[string]
+        if ($_.Exception.Message) { $parts.Add($_.Exception.Message) }
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $parts.Add($_.ErrorDetails.Message) }
         try {
             if ($_.Exception.Response) {
                 $stream = $_.Exception.Response.GetResponseStream()
                 if ($stream) {
                     $reader = New-Object System.IO.StreamReader($stream)
                     $responseBody = $reader.ReadToEnd()
-                    if ($responseBody) { $detail = "$detail`n$responseBody" }
+                    if ($responseBody) { $parts.Add($responseBody) }
                 }
             }
         } catch {}
+        $detail = ($parts | Select-Object -Unique) -join "`n"
         throw "Supabase $method $path failed:`n$detail"
     }
 }
 function Invoke-SupaGet([string]$path) { return Invoke-SupaRequest "Get" $path }
 function Invoke-SupaPost([string]$path, $body, [string]$prefer = "return=representation") { return Invoke-SupaRequest "Post" $path $body $prefer }
 function Invoke-SupaPatch([string]$path, $body) { Invoke-SupaRequest "Patch" $path $body "return=minimal" | Out-Null }
+function Invoke-SupaGetAll([string]$path) {
+    $all = New-Object System.Collections.Generic.List[object]
+    $offset = 0
+    $limit = 1000
+    while ($true) {
+        $separator = if ($path.Contains("?")) { "&" } else { "?" }
+        $page = @(Invoke-SupaGet "$path${separator}limit=$limit&offset=$offset")
+        foreach ($row in $page) { $all.Add($row) }
+        if ($page.Count -lt $limit) { break }
+        $offset += $limit
+    }
+    return @($all)
+}
 function DbValue($recordset, [string]$name) {
     $value = $recordset.Fields.Item($name).Value
     if ($null -eq $value -or $value -is [DBNull]) { return $null }
@@ -73,19 +89,6 @@ function PackageCount([string]$packageType) {
     return 1
 }
 function UrlEncode([string]$value) { return [uri]::EscapeDataString($value) }
-
-function Get-ProductMapping([string]$externalId) {
-    $encoded = UrlEncode $externalId
-    $rows = @(Invoke-SupaGet "product_external_ids?system=eq.viewplan&external_id=eq.$encoded&select=product_id")
-    if ($rows.Count -gt 0) { return [string]$rows[0].product_id }
-    return $null
-}
-function Get-VariantMapping([string]$externalId) {
-    $encoded = UrlEncode $externalId
-    $rows = @(Invoke-SupaGet "product_variant_external_ids?system=eq.viewplan&external_id=eq.$encoded&select=product_variant_id")
-    if ($rows.Count -gt 0) { return [string]$rows[0].product_variant_id }
-    return $null
-}
 
 Write-Host "Field Ops - ViewPlan canonical commercial sync"
 Write-Host "----------------------------------------------"
@@ -154,14 +157,20 @@ $rs.Close()
 if ($rows.Count -eq 0) { throw "No saleable ViewPlan product/package rows were returned." }
 Write-Host "Saleable product/package rows: $($rows.Count)"
 
+# Load all existing mappings once. This is much faster than one REST lookup per item
+# and remains correct beyond PostgREST's normal 1,000-row response size.
 $productMap = @{}
+$productMappings = @(Invoke-SupaGetAll "product_external_ids?system=eq.viewplan&select=external_id,product_id")
+foreach ($m in $productMappings) { $productMap[[string]$m.external_id] = [string]$m.product_id }
+Write-Host "Existing ViewPlan product mappings: $($productMap.Count)"
+
 $distinctProducts = $rows | Group-Object brew_type_id
 $productIndex = 0
 foreach ($group in $distinctProducts) {
     $productIndex++
     $sample = $group.Group[0]
     $externalId = [string]$sample.brew_type_id
-    $productId = Get-ProductMapping $externalId
+    $productId = $productMap[$externalId]
     $sourceUpdated = if ($sample.brew_lud) { ([DateTime]$sample.brew_lud).ToUniversalTime().ToString("o") } else { $syncTime }
 
     if (-not $productId) {
@@ -178,6 +187,7 @@ foreach ($group in $distinctProducts) {
             system = "viewplan"
             external_id = $externalId
         } "return=minimal" | Out-Null
+        $productMap[$externalId] = $productId
     }
     else {
         Invoke-SupaPatch "products?id=eq.$productId" @{
@@ -188,17 +198,20 @@ foreach ($group in $distinctProducts) {
             updated_at = $syncTime
         }
     }
-    $productMap[$externalId] = $productId
-    if (($productIndex % 100) -eq 0) { Write-Host "Products resolved: $productIndex/$($distinctProducts.Count)" }
+    if (($productIndex % 250) -eq 0) { Write-Host "Products resolved: $productIndex/$($distinctProducts.Count)" }
 }
 Write-Host "Canonical products resolved: $($productMap.Count)"
 
 $variantMap = @{}
+$variantMappings = @(Invoke-SupaGetAll "product_variant_external_ids?system=eq.viewplan&select=external_id,product_variant_id")
+foreach ($m in $variantMappings) { $variantMap[[string]$m.external_id] = [string]$m.product_variant_id }
+Write-Host "Existing ViewPlan variant mappings: $($variantMap.Count)"
+
 $variantIndex = 0
 foreach ($row in $rows) {
     $variantIndex++
     $variantExternalId = "$($row.brew_type_id)|$($row.packaging_type)"
-    $variantId = Get-VariantMapping $variantExternalId
+    $variantId = $variantMap[$variantExternalId]
     $productId = $productMap[[string]$row.brew_type_id]
     $variantBody = @{
         product_id = $productId
@@ -212,8 +225,6 @@ foreach ($row in $rows) {
     }
 
     if (-not $variantId) {
-        # A previous partial run may have created the canonical variant before writing
-        # its external-ID mapping. Recover that row using the canonical unique key.
         $pkg = UrlEncode $row.packaging_type
         $existing = @(Invoke-SupaGet "product_variants?product_id=eq.$productId&package_type=eq.$pkg&select=id")
         if ($existing.Count -gt 0) {
@@ -225,24 +236,29 @@ foreach ($row in $rows) {
             $variantId = [string]$created[0].id
         }
 
-        # We already queried this exact external ID and know it is absent, so a normal
-        # insert is safer than an upsert and avoids PostgREST on_conflict ambiguity.
-        Invoke-SupaPost "product_variant_external_ids" @{
+        $mappingBody = @{
             product_variant_id = $variantId
             system = "viewplan"
             external_id = $variantExternalId
-        } "return=minimal" | Out-Null
+        }
+        try {
+            Invoke-SupaPost "product_variant_external_ids" $mappingBody "return=minimal" | Out-Null
+        }
+        catch {
+            $safeJson = ConvertTo-Json -InputObject $mappingBody -Compress
+            throw "Variant mapping failed at row $variantIndex/$($rows.Count) for '$variantExternalId' (variant $variantId). Payload: $safeJson`n$($_.Exception.Message)"
+        }
+        $variantMap[$variantExternalId] = $variantId
     }
     else {
         Invoke-SupaPatch "product_variants?id=eq.$variantId" $variantBody
     }
-    $variantMap[$variantExternalId] = $variantId
     if (($variantIndex % 250) -eq 0) { Write-Host "Variants resolved: $variantIndex/$($rows.Count)" }
 }
 Write-Host "Canonical variants resolved: $($variantMap.Count)"
 
 $priceListMap = @{}
-$priceLists = @(Invoke-SupaGet "price_lists?source_system=eq.viewplan&select=id,source_external_id")
+$priceLists = @(Invoke-SupaGetAll "price_lists?source_system=eq.viewplan&select=id,source_external_id")
 foreach ($p in $priceLists) { $priceListMap[[string]$p.source_external_id] = [string]$p.id }
 for ($n = 1; $n -le 10; $n++) {
     if (-not $priceListMap[[string]$n]) { throw "Wholesale price list $n is missing. Apply the canonical commercial model migration first." }
