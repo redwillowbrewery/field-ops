@@ -95,6 +95,7 @@ ORDER BY customer_id
     while(-not$rs.EOF){
         $lud=DbValue $rs "lud"
         if($lud){$d=[DateTime]$lud;if($null-eq$maxSourceLud-or$d-gt$maxSourceLud){$maxSourceLud=$d}}
+        $ludIso=IsoDateTime $lud
 
         $contacts=New-Object System.Collections.Generic.List[object]
         $contactDefs=@(
@@ -108,6 +109,7 @@ ORDER BY customer_id
             $cn=TextValue (DbValue $rs $c.name);$ce=TextValue (DbValue $rs $c.email);$cp=TextValue (DbValue $rs $c.phone)
             if($cn-or$ce-or$cp){$contacts.Add([PSCustomObject]@{slot=$c.slot;full_name=$cn;email=$ce;phone=$cp;is_primary=$c.primary})}
         }
+        $contactArray=@($contacts | ForEach-Object { $_ })
 
         $rows.Add([PSCustomObject]@{
             customer_id=[int](DbValue $rs "customer_id")
@@ -134,8 +136,8 @@ ORDER BY customer_id
             call_schedule=TextValue (DbValue $rs "call_schedule")
             is_available=BoolValue (DbValue $rs "is_available")
             is_prospect=BoolValue (DbValue $rs "is_prospect")
-            lud=IsoDateTime $lud
-            contacts=@($contacts)
+            lud=$ludIso
+            contacts=$contactArray
         })
         $rs.MoveNext()
     }
