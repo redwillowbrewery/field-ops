@@ -8,6 +8,7 @@ export default async function MapPage() {
   const { data: authData } = await supabase.auth.getUser();
   const userId = authData.user!.id;
   const now = new Date();
+  const nowMs = now.getTime();
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
   const tomorrow = new Date(todayStart); tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -40,7 +41,7 @@ export default async function MapPage() {
 
   const overdueAccountIds = new Set(
     (tasks || [])
-      .filter((task) => task.due_at && new Date(task.due_at).getTime() < Date.now())
+      .filter((task) => task.due_at && new Date(task.due_at).getTime() < nowMs)
       .map((task) => task.account_id)
       .filter(Boolean)
   );
