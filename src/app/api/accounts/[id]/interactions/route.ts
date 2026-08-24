@@ -9,7 +9,8 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
  const body=await request.json().catch(()=>null) as {interaction_type?:string;target?:string}|null;
  const type=body?.interaction_type;
  if(type!=="call"&&type!=="email")return NextResponse.json({error:"Invalid interaction type"},{status:400});
- const {error}=await supabase.from("account_interactions").insert({account_id:id,interaction_type:type,target:body?.target||null});
+ const target=String(body?.target||"").trim();
+ const {error}=await supabase.from("account_notes").insert({account_id:id,author_id:user.id,body:`[${type}] ${target}`.trim()});
  if(error)return NextResponse.json({error:error.message},{status:400});
  return NextResponse.json({ok:true});
 }
