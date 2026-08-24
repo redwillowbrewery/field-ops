@@ -11,6 +11,24 @@ const STATUS_WEIGHT: Record<string, number> = {
   closed: -100,
 };
 
+type SalesSummary = { last_order_date: string | null; total_spend: number | null; total_orders: number | null } | null;
+type Recommendation = {
+  id: string;
+  name: string;
+  town: string | null;
+  postcode: string | null;
+  classification: string | null;
+  relationship_status: string | null;
+  latitude: number | string;
+  longitude: number | string;
+  last_visit_at: string | null;
+  sales: SalesSummary;
+  task: { overdue: boolean; title: string | null; taskType: string | null } | undefined;
+  distanceMiles: number;
+  score: number;
+  reasons: string[];
+};
+
 export default async function PlanNearbyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
@@ -57,7 +75,7 @@ export default async function PlanNearbyPage({ params }: { params: Promise<{ id:
       .lt("starts_at", dayEnd.toISOString()),
   ]);
 
-  const now = Date.now();
+  const now = new Date().getTime();
   const taskByAccount = new Map<string, { overdue: boolean; title: string | null; taskType: string | null }>();
   for (const task of tasks || []) {
     if (!task.account_id) continue;
@@ -69,11 +87,11 @@ export default async function PlanNearbyPage({ params }: { params: Promise<{ id:
   }
   const bookedIds = new Set((booked || []).map((row) => row.account_id));
 
-  const recommendations = (accounts || [])
-    .map((account) => {
+  const recommendations: Recommendation[] = (accounts || [])
+    .map((account): Recommendation | null => {
       const distanceMiles = haversineMiles(Number(anchor.latitude), Number(anchor.longitude), Number(account.latitude), Number(account.longitude));
       if (distanceMiles > 20) return null;
-      const sales = Array.isArray(account.sales) ? account.sales[0] : account.sales;
+      const sales = (Array.isArray(account.sales) ? account.sales[0] : account.sales) || null;
       const task = taskByAccount.get(account.id);
       const reasons: string[] = [];
       let score = STATUS_WEIGHT[account.relationship_status || "dormant"] ?? 0;
@@ -105,11 +123,11 @@ export default async function PlanNearbyPage({ params }: { params: Promise<{ id:
 
       if (bookedIds.has(account.id)) { score -= 80; reasons.push("Already booked today"); }
 
-      return { ...account, sales, task, distanceMiles, score, reasons };
+      return { ...account, sales, task, distanceMiles, score, reasons } as Recommendation;
     })
-    .filter(Boolean)
-    .sort((a, b) => (b!.score - a!.score) || (a!.distanceMiles - b!.distanceMiles))
-    .slice(0, 12) as any[];
+    .filter((account): account is Recommendation => account !== null)
+    .sort((a, b) => (b.score - a.score) || (a.distanceMiles - b.distanceMiles))
+    .slice(0, 12);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -140,7 +158,7 @@ export default async function PlanNearbyPage({ params }: { params: Promise<{ id:
                     </div>
                     <p className="mt-1 text-sm text-slate-500">{[account.town, account.postcode, account.classification].filter(Boolean).join(" · ")}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {account.reasons.slice(0, 4).map((reason: string) => <span key={reason} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{reason}</span>)}
+                      {account.reasons.slice(0, 4).map((reason) => <span key={reason} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{reason}</span>)}
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
                       <Link href={`/accounts/${account.id}`} className="flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700">Open account</Link>
