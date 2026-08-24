@@ -11,16 +11,14 @@ const items = [
 export function BottomNav({ active = "Accounts" }: { active?: string }) {
   return (
     <>
-      {/* Phone navigation only. From the small breakpoint upwards we use the top navigation. */}
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
         <div className="mx-auto grid max-w-xl grid-cols-5">
           {items.map((item) => <NavItem key={item.label} item={item} active={active} mobile />)}
         </div>
       </nav>
 
-      {/* Tablet/desktop navigation stays at the top of the viewport. */}
-      <nav className="sticky top-0 z-50 hidden border-b border-slate-200 bg-white/95 backdrop-blur sm:block">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+      <nav data-brewery-ops-desktop className="fixed inset-x-0 top-0 z-50 hidden h-[61px] border-b border-slate-200 bg-white/95 backdrop-blur sm:block">
+        <div className="mx-auto flex h-full max-w-5xl items-center justify-between px-6">
           <Link href="/accounts" className="inline-flex items-center gap-2 text-sm font-bold tracking-tight text-slate-950" aria-label="Go to Accounts home">
             <HomeIcon />
             <span>Brewery Ops</span>
