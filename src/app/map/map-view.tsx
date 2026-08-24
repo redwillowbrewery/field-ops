@@ -31,9 +31,19 @@ type AppointmentPoint = {
 };
 
 type UserLocation = { latitude: number; longitude: number } | null;
+type LatLng = [number, number];
+type LeafletMap = { setView:(point:LatLng,zoom:number)=>LeafletMap; fitBounds:(bounds:LatLng[],options?:Record<string,unknown>)=>LeafletMap; invalidateSize:()=>void };
+type LeafletLayerGroup = { addTo:(map:LeafletMap)=>LeafletLayerGroup; clearLayers:()=>void };
+type LeafletMarker = { bindPopup:(html:string)=>LeafletMarker; bindTooltip:(text:string,options?:Record<string,unknown>)=>LeafletMarker; addTo:(target:LeafletMap|LeafletLayerGroup)=>LeafletMarker; remove:()=>void };
+type LeafletNamespace = {
+  map:(element:HTMLElement,options?:Record<string,unknown>)=>LeafletMap;
+  tileLayer:(url:string,options?:Record<string,unknown>)=>{addTo:(map:LeafletMap)=>unknown};
+  layerGroup:()=>LeafletLayerGroup;
+  circleMarker:(point:LatLng,options?:Record<string,unknown>)=>LeafletMarker;
+};
 
 declare global {
-  interface Window { L?: any; }
+  interface Window { L?: LeafletNamespace; }
 }
 
 const STATUSES = ["current", "cooling", "lapsed", "dormant", "prospect", "closed"];
@@ -48,10 +58,10 @@ const STATUS_COLOURS: Record<string, string> = {
 
 export function MapView({ accounts, appointments }: { accounts: AccountPoint[]; appointments: AppointmentPoint[] }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const layerRef = useRef<any>(null);
-  const appointmentLayerRef = useRef<any>(null);
-  const userMarkerRef = useRef<any>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const layerRef = useRef<LeafletLayerGroup | null>(null);
+  const appointmentLayerRef = useRef<LeafletLayerGroup | null>(null);
+  const userMarkerRef = useRef<LeafletMarker | null>(null);
   const [ready, setReady] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -96,7 +106,7 @@ export function MapView({ accounts, appointments }: { accounts: AccountPoint[]; 
     if (!ready || !mapRef.current || !layerRef.current || !window.L) return;
     const L = window.L;
     layerRef.current.clearLayers();
-    const bounds: any[] = [];
+    const bounds: LatLng[] = [];
 
     for (const account of filtered) {
       const status = account.relationship_status || "dormant";
@@ -169,14 +179,14 @@ export function MapView({ accounts, appointments }: { accounts: AccountPoint[]; 
 
   function centreAppointments() {
     if (!mapRef.current || !window.L || !appointments.length) return;
-    const bounds = appointments.map((appointment) => [appointment.account.latitude, appointment.account.longitude]);
+    const bounds: LatLng[] = appointments.map((appointment) => [appointment.account.latitude, appointment.account.longitude]);
     if (bounds.length === 1) mapRef.current.setView(bounds[0], 12);
     else mapRef.current.fitBounds(bounds, { padding: [36, 36], maxZoom: 12 });
   }
 
   function centreAccounts() {
     if (!mapRef.current || !window.L || !filtered.length) return;
-    const bounds = filtered.map((account) => [account.latitude, account.longitude]);
+    const bounds: LatLng[] = filtered.map((account) => [account.latitude, account.longitude]);
     mapRef.current.fitBounds(bounds, { padding: [24, 24], maxZoom: 11 });
   }
 
@@ -248,4 +258,4 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 }
 function toRad(value: number) { return value * Math.PI / 180; }
 function formatTime(value: string) { return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
-function escapeHtml(value: string) { return value.replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char] || char)); }
+function escapeHtml(value: string) { return value.replace(/[&<>'\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '\"': "&quot;" }[char] || char)); }
