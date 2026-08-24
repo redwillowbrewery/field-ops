@@ -33,3 +33,13 @@ select,
 textarea {
   font: inherit;
 }
+
+@media (min-width: 640px) {
+  body:has([data-brewery-ops-desktop]) {
+    padding-top: 61px;
+  }
+
+  body:has([data-brewery-ops-desktop]) header.sticky {
+    top: 61px;
+  }
+}
