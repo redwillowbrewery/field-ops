@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet("products","pricing")]
+    [ValidateSet("products","pricing","containers")]
     [string]$ModuleName,
     [Parameter(Mandatory=$true)]
     [string]$ScriptName,
