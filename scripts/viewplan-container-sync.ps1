@@ -44,7 +44,8 @@ try { $access = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Appli
 catch { throw "Could not attach to running ViewPlan. Open/login first and use 32-bit PowerShell." }
 $db = $access.CurrentDb()
 
-# Reconcile and retrieve ViewPlan account mappings server-side so RLS/client paging cannot hide mappings.
+# Reconcile the legacy bridge server-side, then read the canonical ViewPlan key directly
+# from accounts. The service-role Authorization header above is required for reliable REST reads.
 $mappingStats = @(Invoke-Supa "Post" "rpc/reconcile_viewplan_account_mappings" @{} "return=representation")
 if ($mappingStats.Count) {
     Write-Host "Accounts with ViewPlan ID:  $($mappingStats[0].accounts_with_viewplan_id)"
@@ -52,12 +53,22 @@ if ($mappingStats.Count) {
 }
 
 $accountMap = @{}
+$mappingRows = 0
 for ($from = 0; ; $from += 1000) {
-    $page = @(Invoke-Supa "Post" "rpc/get_viewplan_account_mappings?offset=$from&limit=1000" @{} "return=representation")
-    foreach ($m in $page) { $accountMap[[string]$m.viewplan_customer_id] = [string]$m.account_id }
+    $page = @(Invoke-Supa "Get" "accounts?brewery_customer_id=not.is.null&select=id,brewery_customer_id&order=brewery_customer_id.asc&offset=$from&limit=1000")
+    foreach ($a in $page) {
+        if ($null -ne $a.brewery_customer_id -and $a.id) {
+            $accountMap[[string]$a.brewery_customer_id] = [string]$a.id
+            $mappingRows++
+        }
+    }
     if ($page.Count -lt 1000) { break }
 }
+Write-Host "ViewPlan account rows read:      $mappingRows"
 Write-Host "ViewPlan account mappings loaded: $($accountMap.Count)"
+if ($mappingRows -lt 1000 -or $accountMap.Count -lt 1000) {
+    throw "Container sync aborted: only $mappingRows ViewPlan account rows / $($accountMap.Count) unique mappings were loaded from Brewery Ops. Expected approximately 1900. Existing snapshot has NOT been replaced."
+}
 
 $classMap = @{}
 foreach ($c in @(Invoke-Supa "Get" "packaging_type_classification?select=package_type,is_returnable")) {
