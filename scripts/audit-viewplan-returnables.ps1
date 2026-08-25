@@ -14,9 +14,16 @@ catch {
 }
 
 $db = $access.CurrentDb()
-$targets = @(
+
+$exactTargets = @(
     "Item No","On Site","Off Site Date","Off Site Days","Customer","Type","Order No","Lost",
-    "Serial No","Contents","Gyle","Stock Location","Dispatched","Delivered","Usage Count","Leased","Lease Expiry"
+    "Serial No","Contents","Gyle","Stock Location","Dispatched","Delivered","Usage Count","Leased","Lease Expiry",
+    "Pkg Date","Best Before","Delivery Post Code","Post Code","Customer Class","Loc Zone Desc"
+)
+$tokens = @(
+    "packaging","package","inventory","container","return","returned","off site","off_site","offsite",
+    "item no","item_no","stock location","serial no","serial_no","lease","leased","lost","usage count",
+    "cask","keg","firkin","pin","vessel"
 )
 
 function Get-FieldNames($fields) {
@@ -25,67 +32,91 @@ function Get-FieldNames($fields) {
     return $names.ToArray()
 }
 
-function Match-Targets([string[]]$fieldNames) {
+function Get-ExactMatches([string[]]$fieldNames) {
     $matched = New-Object System.Collections.Generic.List[string]
-    foreach ($target in $targets) {
+    foreach ($target in $exactTargets) {
         if ($fieldNames -contains $target) { $matched.Add($target) }
+    }
+    return $matched.ToArray()
+}
+
+function Get-TokenMatches([string]$text) {
+    $matched = New-Object System.Collections.Generic.List[string]
+    foreach ($token in $tokens) {
+        if ($text -match [regex]::Escape($token)) { $matched.Add($token) }
     }
     return $matched.ToArray()
 }
 
 $candidates = New-Object System.Collections.Generic.List[object]
 
-Write-Host "Scanning saved queries..."
+Write-Host "Scanning saved queries (name, fields and SQL)..."
 foreach ($qd in $db.QueryDefs) {
-    if ([string]$qd.Name -like "~*") { continue }
+    $name = [string]$qd.Name
+    if ($name -like "~*") { continue }
     try {
         $fieldNames = Get-FieldNames $qd.Fields
-        $matched = Match-Targets $fieldNames
-        if ($matched.Count -ge 3) {
+        $exact = Get-ExactMatches $fieldNames
+        $sql = [string]$qd.SQL
+        $haystack = ($name + " " + ($fieldNames -join " ") + " " + $sql).ToLowerInvariant()
+        $tokenMatches = Get-TokenMatches $haystack
+        $score = ($exact.Count * 5) + ($tokenMatches.Count * 2)
+        if ($score -ge 4) {
             $candidates.Add([PSCustomObject]@{
                 Kind = "Query"
-                Name = [string]$qd.Name
-                MatchCount = $matched.Count
-                Matches = ($matched -join ", ")
+                Name = $name
+                Score = $score
+                ExactMatches = ($exact -join ", ")
+                TokenMatches = ($tokenMatches -join ", ")
                 Fields = ($fieldNames -join ", ")
+                SQL = $sql
             })
         }
     } catch {}
 }
 
-Write-Host "Scanning tables / linked tables..."
+Write-Host "Scanning tables / linked tables (name and fields)..."
 foreach ($td in $db.TableDefs) {
     $name = [string]$td.Name
     if ($name -like "MSys*" -or $name -like "~*") { continue }
     try {
         $fieldNames = Get-FieldNames $td.Fields
-        $matched = Match-Targets $fieldNames
-        $nameLooksRelevant = $name -match "(?i)cask|keg|container|package|packaging|return|stock|inventory|vessel"
-        if ($matched.Count -ge 2 -or ($matched.Count -ge 1 -and $nameLooksRelevant)) {
+        $exact = Get-ExactMatches $fieldNames
+        $haystack = ($name + " " + ($fieldNames -join " ")).ToLowerInvariant()
+        $tokenMatches = Get-TokenMatches $haystack
+        $score = ($exact.Count * 5) + ($tokenMatches.Count * 2)
+        if ($score -ge 4) {
             $candidates.Add([PSCustomObject]@{
                 Kind = "Table"
                 Name = $name
-                MatchCount = $matched.Count
-                Matches = ($matched -join ", ")
+                Score = $score
+                ExactMatches = ($exact -join ", ")
+                TokenMatches = ($tokenMatches -join ", ")
                 Fields = ($fieldNames -join ", ")
+                SQL = ""
             })
         }
     } catch {}
 }
 
-$ordered = @($candidates | Sort-Object @{Expression="MatchCount";Descending=$true}, Kind, Name)
-if (-not $ordered.Count) {
-    Write-Warning "No obvious source found from field names. We may need to trace the saved export/report object instead."
-    exit 0
-}
-
+$ordered = @($candidates | Sort-Object @{Expression="Score";Descending=$true}, Kind, Name)
 Write-Host ""
 Write-Host "Candidate sources: $($ordered.Count)"
 Write-Host ""
+
+$shown = 0
 foreach ($candidate in $ordered) {
-    Write-Host "[$($candidate.Kind)] $($candidate.Name)"
-    Write-Host "  matched $($candidate.MatchCount): $($candidate.Matches)"
+    if ($shown -ge 25) { break }
+    $shown++
+    Write-Host "[$($candidate.Kind)] $($candidate.Name)  score=$($candidate.Score)"
+    if ($candidate.ExactMatches) { Write-Host "  exact fields: $($candidate.ExactMatches)" }
+    if ($candidate.TokenMatches) { Write-Host "  keyword hits: $($candidate.TokenMatches)" }
     Write-Host "  fields: $($candidate.Fields)"
+    if ($candidate.Kind -eq "Query" -and $candidate.SQL) {
+        $compactSql = (($candidate.SQL -replace "[\r\n\t]+", " ") -replace "\s+", " ").Trim()
+        if ($compactSql.Length -gt 700) { $compactSql = $compactSql.Substring(0,700) + "..." }
+        Write-Host "  SQL: $compactSql"
+    }
     Write-Host ""
 }
 
@@ -93,7 +124,7 @@ Write-Host "Top candidate sample rows"
 Write-Host "-------------------------"
 $sampled = 0
 foreach ($candidate in $ordered) {
-    if ($sampled -ge 5) { break }
+    if ($sampled -ge 8) { break }
     try {
         $safeName = ([string]$candidate.Name).Replace("]","]]" )
         $rs = $db.OpenRecordset("SELECT TOP 3 * FROM [$safeName]")
@@ -106,7 +137,14 @@ foreach ($candidate in $ordered) {
             $parts = New-Object System.Collections.Generic.List[string]
             foreach ($field in $rs.Fields) {
                 $fieldName = [string]$field.Name
-                if ($targets -contains $fieldName) {
+                $fieldText = $fieldName.ToLowerInvariant()
+                $interesting = ($exactTargets -contains $fieldName)
+                if (-not $interesting) {
+                    foreach ($token in $tokens) {
+                        if ($fieldText -match [regex]::Escape($token)) { $interesting = $true; break }
+                    }
+                }
+                if ($interesting) {
                     $value = $field.Value
                     if ($null -eq $value -or $value -is [DBNull]) { $value = "" }
                     $parts.Add("$fieldName=$value")
@@ -123,4 +161,11 @@ foreach ($candidate in $ordered) {
 }
 
 Write-Host ""
-Write-Host "Audit complete. Paste the candidate list and sample rows back into ChatGPT."
+Write-Host "Objects whose NAME strongly suggests returnables"
+Write-Host "------------------------------------------------"
+foreach ($candidate in $ordered | Where-Object { $_.Name -match "(?i)pack|container|return|cask|keg|stock|inventory|vessel" } | Select-Object -First 30) {
+    Write-Host "  [$($candidate.Kind)] $($candidate.Name)"
+}
+
+Write-Host ""
+Write-Host "Audit complete. Paste the candidate list, SQL snippets and sample rows back into ChatGPT."
