@@ -11,8 +11,7 @@ type CanonicalVariant={id:string;broad_format:BroadFormat;package_type:string;vo
 type SellarMapping={external_id:string;product_variant_id:string};
 type AccountPricing={discount:number|null;parent_pricing_account_id:string|null};
 type EffectivePrice={list_price:number|string|null;customer_price:number|string|null;pricing_source:string|null;pricing_formula:string|null;effective_discount:number|string|null;price_list_code:string|null};
-
-type ProductCard={product:SellarProduct;variant:CanonicalVariant|null;exactMapped:boolean;pricing:EffectivePrice|null};
+type ProductCard={product:SellarProduct;variant:CanonicalVariant;pricing:EffectivePrice|null};
 
 export default async function AvailabilityPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{q?:string;format?:string}>}){
  const {id}=await params;
@@ -63,6 +62,8 @@ export default async function AvailabilityPage({params,searchParams}:{params:Pro
  if(pricingErr)throw pricingErr;
  const pricingMeta=(accountPricing||null) as AccountPricing|null;
 
+ // Availability is mapping-table only: Sellar variant must explicitly map to a current saleable ViewPlan variant.
+ products=products.filter(p=>{const mapped=sellarVariantMap.get(String(p.id));return Boolean(mapped&&variantById.has(mapped))});
  const term=q.trim().toLowerCase();
  if(term)products=products.filter(p=>[p.name,p.Parent?.name,p.containerType].filter(Boolean).some(v=>String(v).toLowerCase().includes(term)));
  if(format!=="all")products=products.filter(p=>broadSellarFormat(p)===format);
@@ -71,14 +72,13 @@ export default async function AvailabilityPage({params,searchParams}:{params:Pro
  const cards:ProductCard[]=[];
  for(const product of products){
   const mappedVariantId=sellarVariantMap.get(String(product.id));
-  const variant=(mappedVariantId?variantById.get(mappedVariantId):null)||findCanonicalVariant(product,canonicalVariants);
-  let pricing:EffectivePrice|null=null;
-  if(variant){
-   const {data,error}=await supabase.rpc("effective_customer_variant_price",{p_account_id:id,p_product_variant_id:variant.id});
-   if(error)throw error;
-   pricing=((data||[])[0]||null) as EffectivePrice|null;
-  }
-  cards.push({product,variant:variant||null,exactMapped:Boolean(mappedVariantId&&variant),pricing});
+  if(!mappedVariantId)continue;
+  const variant=variantById.get(mappedVariantId);
+  if(!variant)continue;
+  const {data,error}=await supabase.rpc("effective_customer_variant_price",{p_account_id:id,p_product_variant_id:variant.id});
+  if(error)throw error;
+  const pricing=((data||[])[0]||null) as EffectivePrice|null;
+  cards.push({product,variant,pricing});
  }
 
  const lastSync=canonicalVariants.map(v=>v.source_updated_at).filter(Boolean).sort().at(-1)||null;
@@ -92,7 +92,7 @@ export default async function AvailabilityPage({params,searchParams}:{params:Pro
     <div>
      <Link href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</Link>
      <h1 className="mt-3 text-3xl font-semibold tracking-tight">Current availability</h1>
-     <p className="mt-2 text-sm text-slate-500">ViewPlan commercial catalogue · Sellar stock{lastSync?` · synced ${dateTime(lastSync)}`:""} · {[account.town,account.postcode].filter(Boolean).join(" · ")}</p>
+     <p className="mt-2 text-sm text-slate-500">ViewPlan commercial catalogue · Sellar stock · exact mapped variants only{lastSync?` · synced ${dateTime(lastSync)}`:""} · {[account.town,account.postcode].filter(Boolean).join(" · ")}</p>
     </div>
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
      <p className="font-semibold">{headlinePriceList||"Pricing not synced"}{pricingMeta?.parent_pricing_account_id?" · parent pricing available":""}</p>
@@ -106,14 +106,14 @@ export default async function AvailabilityPage({params,searchParams}:{params:Pro
    {!pricingMeta?<div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Customer-specific ViewPlan pricing has not been synced for this account</p><p className="mt-1">Run viewplan-customer-pricing-sync.ps1 on the BMS server.</p></div>:null}
    {sellarError?<div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Live availability unavailable</p><p className="mt-1">{sellarError}. ViewPlan remains the product/pricing source of truth.</p></div>:null}
 
-   <section className="mt-5 space-y-3">{cards.map(({product:p,variant,exactMapped,pricing})=>{
+   <section className="mt-5 space-y-3">{cards.map(({product:p,variant,pricing})=>{
     const customerMatch=findLastPurchase(p,lines,orderDate);
     const list=pricing?.list_price==null?null:Number(pricing.list_price);
     const customer=pricing?.customer_price==null?null:Number(pricing.customer_price);
     const lastPaid=customerMatch&&Number(customerMatch.line.quantity)>0?Number(customerMatch.line.net_after_discount||0)/Number(customerMatch.line.quantity):null;
     const change=customer!=null&&lastPaid!=null?customer-lastPaid:null;
     const image=p.Parent?.imageUrl||p.Parent?.heroImageUrl||p.imageUrl||p.heroImageUrl;
-    const canonicalProduct=variant?single(variant.product):null;
+    const canonicalProduct=single(variant.product);
     const reason=pricingReason(pricing);
     return <article key={p.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="flex gap-4">
      {image?<img src={image} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover"/>:null}
@@ -122,25 +122,17 @@ export default async function AvailabilityPage({params,searchParams}:{params:Pro
       {p.Parent?.description?<p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{p.Parent.description}</p>:null}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Price label="ViewPlan list" value={list==null?"—":money(list)}/><Price label="Customer price" value={customer==null?"—":money(customer)}/><Price label="Last paid" value={lastPaid==null?"—":money(lastPaid)}/><Price label="Change vs last" value={change==null?"—":changeLabel(change,lastPaid!)}/></div>
       <p className="mt-2 text-xs text-slate-400">{reason}</p>
-      {variant?<p className="mt-1 text-xs text-slate-400">{exactMapped?"Sellar ↔ ViewPlan exact map":"Fallback match"}: {canonicalProduct?.name||"Product"} · {variant.package_type}</p>:<p className="mt-2 text-xs text-slate-400">No current ViewPlan canonical variant matched for Sellar ID {p.id}.</p>}
+      <p className="mt-1 text-xs text-slate-400">Sellar ↔ ViewPlan exact map: {canonicalProduct?.name||"Product"} · {variant.package_type}</p>
      </div>
     </div></article>
-   })}{!cards.length&&!sellarError?<div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No available products match this filter.</div>:null}</section>
+   })}{!cards.length&&!sellarError?<div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No mapped available products match this filter.</div>:null}</section>
   </main>
  </div>
 }
 
-function pricingReason(p:EffectivePrice|null){
- if(!p)return"No effective ViewPlan price resolved";
- const source=p.pricing_source||"price list";
- const formula=p.pricing_formula?` · ${p.pricing_formula}`:"";
- const discount=p.effective_discount==null?0:Number(p.effective_discount)*100;
- return `ViewPlan ${source}${formula}${discount?` · ${fmtPct(discount)}% line discount`:""}`;
-}
-function findCanonicalVariant(p:SellarProduct,variants:CanonicalVariant[]){const beers=sellarBeerCandidates(p);const fmt=broadSellarFormat(p);return variants.filter(v=>{const product=single(v.product);return product&&v.broad_format===fmt&&beers.some(beer=>beerMatch(beer,normBeer(product.name)))}).sort((a,b)=>packageScore(p,b.package_type)-packageScore(p,a.package_type))[0]||null}
+function pricingReason(p:EffectivePrice|null){if(!p)return"No effective ViewPlan price resolved";const source=p.pricing_source||"price list";const formula=p.pricing_formula?` · ${p.pricing_formula}`:"";const discount=p.effective_discount==null?0:Number(p.effective_discount)*100;return `ViewPlan ${source}${formula}${discount?` · ${fmtPct(discount)}% line discount`:""}`}
 function findLastPurchase(p:SellarProduct,lines:Line[],dates:Map<string,string>){const beers=sellarBeerCandidates(p);const fmt=broadSellarFormat(p);return lines.filter(l=>l.product_name&&beers.some(beer=>beerMatch(beer,normBeer(l.product_name||"")))&&broadViewPlanFormat(l.package_type||"")===fmt).map(line=>({line,date:dates.get(line.order_id)||""})).sort((a,b)=>b.date.localeCompare(a.date))[0]||null}
 function single<T>(v:T|T[]|null|undefined){return Array.isArray(v)?v[0]||null:v||null}
-function packageScore(p:SellarProduct,candidate:string){const c=candidate.toLowerCase();let score=0;const container=String(p.containerType||"").toLowerCase();if(container.includes("ecask")&&c.includes("e-cask"))score+=10;if(container.includes("ekeg")&&c.includes("e-keg"))score+=10;if(container.includes("keykeg")&&c.includes("key keg"))score+=10;if(container.includes("flatbottompin")&&c.includes("flat bottom"))score+=10;if(container.includes("sankey")&&c.includes("keg"))score+=5;if(container==="can"&&c.includes("can"))score+=5;const vol=Number(p.volume);if(vol&&c.includes(String(vol)))score+=4;const pack=Number(p.packQuantity);if(pack>1&&c.includes(String(pack)))score+=2;return score}
 function displayBeerName(p:SellarProduct){return String(p.Parent?.name||variantBaseName(p.name)||p.name||"").trim()}
 function variantBaseName(v?:string){return String(v||"").split("•")[0].trim().replace(/\s+-\s+(?:\d+\s*[lL]|\d+x\s*\d+\s*ml).*$/i,"").trim()}
 function sellarBeerCandidates(p:SellarProduct){const values=[p.Parent?.name,variantBaseName(p.name),p.name].filter(Boolean).map(v=>normBeer(String(v)));return [...new Set(values.filter(Boolean))]}
