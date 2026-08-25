@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("all","customers","products","pricing")]
+    [ValidateSet("all","customers","products","pricing","containers")]
     [string]$Module = "all",
     [switch]$Full
 )
@@ -37,6 +37,13 @@ if ($Module -eq "all" -or $Module -eq "pricing") {
     Run-Module "Customer pricing" "viewplan-connector-reconcile.ps1" @{
         ModuleName = "pricing"
         ScriptName = "viewplan-customer-pricing-sync.ps1"
+    }
+}
+
+if ($Module -eq "all" -or $Module -eq "containers") {
+    Run-Module "Returnable containers" "viewplan-connector-reconcile.ps1" @{
+        ModuleName = "containers"
+        ScriptName = "viewplan-container-sync.ps1"
     }
 }
 
