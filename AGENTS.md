@@ -7,3 +7,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Brewery Ops architecture guardrail
+
+Before changing domain models, integrations, availability, pricing, product/package semantics, stock, orders, containers or CRM business rules, read:
+
+- `docs/architecture.md` — canonical concepts, integration boundaries and architectural principles.
+- `docs/backlog.md` — prioritised migration path and accepted direction.
+
+Key rule: **Brewery Ops owns the business truth; ViewPlan, Sellar and other external systems are adapters.** Application features should consume canonical Brewery Ops concepts/services and must not embed external-system semantics where a canonical rule belongs.
