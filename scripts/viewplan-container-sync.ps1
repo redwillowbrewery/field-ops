@@ -44,21 +44,17 @@ try { $access = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Appli
 catch { throw "Could not attach to running ViewPlan. Open/login first and use 32-bit PowerShell." }
 $db = $access.CurrentDb()
 
-# brewery_customer_id is the canonical ViewPlan customer key populated by the customer connector.
-$accountMap = @{}
-for ($from = 0; ; $from += 1000) {
-    $page = @(Invoke-Supa "Get" "accounts?brewery_customer_id=not.is.null&select=id,brewery_customer_id&offset=$from&limit=1000")
-    foreach ($a in $page) { $accountMap[[string]$a.brewery_customer_id] = [string]$a.id }
-    if ($page.Count -lt 1000) { break }
+# Reconcile and retrieve ViewPlan account mappings server-side so RLS/client paging cannot hide mappings.
+$mappingStats = @(Invoke-Supa "Post" "rpc/reconcile_viewplan_account_mappings" @{} "return=representation")
+if ($mappingStats.Count) {
+    Write-Host "Accounts with ViewPlan ID:  $($mappingStats[0].accounts_with_viewplan_id)"
+    Write-Host "ViewPlan external bridges:  $($mappingStats[0].external_bridges)"
 }
 
-# Legacy/fallback bridge only. Do not depend on it for normal container mapping.
+$accountMap = @{}
 for ($from = 0; ; $from += 1000) {
-    $page = @(Invoke-Supa "Get" "account_external_ids?system=eq.viewplan&select=external_id,account_id&offset=$from&limit=1000")
-    foreach ($m in $page) {
-        $key = [string]$m.external_id
-        if (-not $accountMap.ContainsKey($key)) { $accountMap[$key] = [string]$m.account_id }
-    }
+    $page = @(Invoke-Supa "Post" "rpc/get_viewplan_account_mappings?offset=$from&limit=1000" @{} "return=representation")
+    foreach ($m in $page) { $accountMap[[string]$m.viewplan_customer_id] = [string]$m.account_id }
     if ($page.Count -lt 1000) { break }
 }
 Write-Host "ViewPlan account mappings loaded: $($accountMap.Count)"
@@ -140,7 +136,6 @@ Write-Host "Off-site rows prepared:       $($rows.Count)"
 Write-Host "Unmatched ViewPlan customers: $($unmatched.Count)"
 Write-Host "Collectible returnables:      $($collectible.Count)"
 
-# Safety: never replace a populated/expected snapshot when source rows exist but mapping failed.
 if ($sourceRows -gt 0 -and $rows.Count -eq 0) {
     throw "Container sync aborted: ViewPlan returned $sourceRows off-site rows but none mapped to Brewery Ops accounts. Existing snapshot has NOT been replaced."
 }
@@ -148,7 +143,6 @@ if ($sourceRows -gt 0 -and $rows.Count -lt [Math]::Floor($sourceRows * 0.90)) {
     throw "Container sync aborted: only $($rows.Count) of $sourceRows off-site rows mapped to Brewery Ops accounts. Existing snapshot has NOT been replaced."
 }
 
-# Snapshot replacement only begins after the entire ViewPlan read/mapping phase has succeeded.
 Invoke-Supa "Delete" "account_containers_snapshot?id=not.is.null" $null "return=minimal" | Out-Null
 $chunkSize = 250
 for ($i = 0; $i -lt $rows.Count; $i += $chunkSize) {
