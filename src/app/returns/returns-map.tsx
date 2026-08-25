@@ -21,7 +21,7 @@ type LatLng = [number, number];
 type LeafletMap = { setView:(point:LatLng,zoom:number)=>LeafletMap; fitBounds:(bounds:LatLng[],options?:Record<string,unknown>)=>LeafletMap; invalidateSize:()=>void };
 type LeafletLayerGroup = { addTo:(map:LeafletMap)=>LeafletLayerGroup; clearLayers:()=>void };
 type LeafletMarker = { bindPopup:(html:string)=>LeafletMarker; addTo:(target:LeafletMap|LeafletLayerGroup)=>LeafletMarker; remove:()=>void };
-type LeafletNamespace = {
+type ReturnsLeafletNamespace = {
   map:(element:HTMLElement,options?:Record<string,unknown>)=>LeafletMap;
   tileLayer:(url:string,options?:Record<string,unknown>)=>{addTo:(map:LeafletMap)=>unknown};
   layerGroup:()=>LeafletLayerGroup;
@@ -30,7 +30,7 @@ type LeafletNamespace = {
   marker:(point:LatLng,options?:Record<string,unknown>)=>LeafletMarker;
 };
 
-declare global { interface Window { L?: LeafletNamespace; } }
+function leaflet() { return (window as unknown as { L?: ReturnsLeafletNamespace }).L; }
 
 export function ReturnsMap({ points, totalReturnables, unmappedAccounts }: { points: ReturnPoint[]; totalReturnables: number; unmappedAccounts: number }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
@@ -57,8 +57,8 @@ export function ReturnsMap({ points, totalReturnables, unmappedAccounts }: { poi
   useEffect(() => {
     let cancelled = false;
     loadLeaflet().then(() => {
-      if (cancelled || !mapEl.current || !window.L || mapRef.current) return;
-      const L = window.L;
+      const L = leaflet();
+      if (cancelled || !mapEl.current || !L || mapRef.current) return;
       const map = L.map(mapEl.current, { zoomControl: true, tap: true }).setView([53.2, -2.2], 8);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
       layerRef.current = L.layerGroup().addTo(map);
@@ -70,8 +70,8 @@ export function ReturnsMap({ points, totalReturnables, unmappedAccounts }: { poi
   }, []);
 
   useEffect(() => {
-    if (!ready || !mapRef.current || !layerRef.current || !window.L) return;
-    const L = window.L;
+    const L = leaflet();
+    if (!ready || !mapRef.current || !layerRef.current || !L) return;
     layerRef.current.clearLayers();
     const bounds: LatLng[] = [];
 
@@ -96,8 +96,8 @@ export function ReturnsMap({ points, totalReturnables, unmappedAccounts }: { poi
   }, [ready, filtered, userLocation]);
 
   useEffect(() => {
-    if (!ready || !mapRef.current || !window.L || !userLocation) return;
-    const L = window.L;
+    const L = leaflet();
+    if (!ready || !mapRef.current || !L || !userLocation) return;
     if (userMarkerRef.current) userMarkerRef.current.remove();
     userMarkerRef.current = L.circleMarker([userLocation.latitude, userLocation.longitude], {
       radius: 9, color: "#0f172a", fillColor: "#ffffff", fillOpacity: 1, weight: 4,
@@ -159,4 +159,4 @@ function distanceLabel(km: number) { return km < 1 ? `${Math.round(km * 1000)}m`
 function haversineKm(lat1:number,lon1:number,lat2:number,lon2:number){const r=6371;const dLat=toRad(lat2-lat1);const dLon=toRad(lon2-lon1);const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return 2*r*Math.asin(Math.sqrt(a));}
 function toRad(value:number){return value*Math.PI/180;}
 function escapeHtml(value:string){return value.replace(/[&<>'\"]/g,(char)=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':"&quot;"}[char]||char));}
-async function loadLeaflet(){if(window.L)return;if(!document.querySelector('link[data-fieldops-leaflet]')){const link=document.createElement("link");link.rel="stylesheet";link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";link.dataset.fieldopsLeaflet="true";document.head.appendChild(link);}await new Promise<void>((resolve,reject)=>{const existing=document.querySelector('script[data-fieldops-leaflet]') as HTMLScriptElement|null;if(existing){if(window.L){resolve();return;}existing.addEventListener("load",()=>resolve(),{once:true});existing.addEventListener("error",()=>reject(),{once:true});return;}const script=document.createElement("script");script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";script.async=true;script.dataset.fieldopsLeaflet="true";script.onload=()=>resolve();script.onerror=()=>reject(new Error("Leaflet failed to load"));document.head.appendChild(script);});}
+async function loadLeaflet(){if(leaflet())return;if(!document.querySelector('link[data-fieldops-leaflet]')){const link=document.createElement("link");link.rel="stylesheet";link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";link.dataset.fieldopsLeaflet="true";document.head.appendChild(link);}await new Promise<void>((resolve,reject)=>{const existing=document.querySelector('script[data-fieldops-leaflet]') as HTMLScriptElement|null;if(existing){if(leaflet()){resolve();return;}existing.addEventListener("load",()=>resolve(),{once:true});existing.addEventListener("error",()=>reject(),{once:true});return;}const script=document.createElement("script");script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";script.async=true;script.dataset.fieldopsLeaflet="true";script.onload=()=>resolve();script.onerror=()=>reject(new Error("Leaflet failed to load"));document.head.appendChild(script);});}
