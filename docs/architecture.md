@@ -108,13 +108,59 @@ Full reconciliation jobs must not wipe known-good canonical data if an upstream 
 
 Rules such as package returnability, product saleability, customer effective price and availability should be calculated in one canonical place and reused. Avoid parallel implementations on different screens.
 
+### 2.11 Frictionless by default
+
+Brewery Ops is used by busy people in operational contexts. The UI should prioritise speed, clarity and confidence over feature density.
+
+Practical rules:
+
+- one obvious primary action per screen where possible;
+- common actions in one or two taps;
+- progressive disclosure for uncommon/advanced settings;
+- mobile-first layouts for field and operational roles;
+- no duplicate controls merely because multiple features exist;
+- sensible defaults from account/user context;
+- show enough system state to build confidence without adding noise;
+- users should not need to understand ViewPlan, Sellar, mappings or other internal implementation details.
+
+### 2.12 Role-centric views over one shared model
+
+Different users should see the information required for their job, not the whole canonical model.
+
+Role-specific screens are **lenses over shared Brewery Ops data**, not separate systems or duplicate records.
+
+Examples:
+
+- **Driver:** location, number/type of empties, collection/delivery priority, delivery window, access notes, call-ahead requirement, navigation and a fast way to record observations.
+- **Salesperson:** contacts, status, current availability, customer pricing, recent interactions/orders, tasks and quick communication/order actions.
+- **Bar manager:** beer on line, remaining stock, full containers in cellar, ordering needs and cellar tasks.
+- **Production/warehouse:** batch, packaged stock, allocation, location, holds and container state.
+
+A role should generally not see information that does not help the immediate decision or action.
+
+### 2.13 Operational observations feed shared account knowledge
+
+Role-centric simplicity must not create information silos. A driver, salesperson or other user should be able to capture concise observations in context, and those observations should enrich the canonical Account/Interaction knowledge for other authorised roles.
+
+Examples from a delivery/collection visit:
+
+```text
+Customer asks us to call 20 minutes before delivery.
+Rear-yard access only before 11:00.
+Pub closed on Mondays.
+Manager says they may want a guest pale next month.
+Four additional empty casks seen in cellar.
+```
+
+Capture should be very low friction: short note, optional structured observation type, timestamp, user/role and account. Where an observation represents durable operational knowledge (for example delivery access or call-ahead), it should be promotable into a structured account preference rather than remaining buried in a timeline.
+
 ## 3. Canonical domain model v1
 
 ### Account
 
 A business/customer/prospect we have a commercial relationship with.
 
-Owns CRM/commercial preferences such as relationship status and container preference.
+Owns CRM/commercial preferences such as relationship status and container preference. It will also accumulate durable operational knowledge such as delivery/access preferences where those concepts become structured.
 
 ### Contact
 
@@ -227,6 +273,24 @@ Orders should eventually drive allocation and availability.
 A logged customer contact/activity: call, visit, email or other meaningful interaction.
 
 Interactions should support later analysis of contact -> subsequent order outcomes.
+
+### Observation
+
+A concise operational fact captured by a user in context, normally linked to an Account and optionally to an Interaction/Visit/Delivery/Collection.
+
+Observations may be transient timeline knowledge or candidates for promotion into durable structured account attributes.
+
+Likely fields/concepts:
+
+```text
+account_id
+observation_type
+text
+source_role
+created_by
+created_at
+promoted_to_attribute nullable
+```
 
 ### Task
 
@@ -353,6 +417,8 @@ Before adding an integration-dependent feature, ask:
 4. Can that source be replaced without changing the feature?
 5. Are we adding an explicit mapping, or relying on names?
 6. Are we duplicating a business rule already implemented elsewhere?
+7. Which role needs this information/action, and what can be hidden from them?
+8. Can useful observations from this workflow enrich shared account knowledge?
 
 Avoid:
 
@@ -361,7 +427,9 @@ Avoid:
 - hard-coded package-name tests in sales UI;
 - using ViewPlan/Sellar IDs as canonical IDs;
 - creating a second effective-pricing implementation;
-- overwriting valid snapshots after obviously failed source reconciliation.
+- overwriting valid snapshots after obviously failed source reconciliation;
+- exposing every available field/action to every role;
+- creating role-specific copies of Account/Product/Stock data instead of role-specific views.
 
 ## 9. Decisions still to prove
 
@@ -371,5 +439,6 @@ The following are intentionally unresolved until audited:
 - Final Package schema and migration from `product_variants.package_type` text.
 - Exact stock/allocation model required for the Brewery Ops production module.
 - Order ownership/authoritative write path during migration from ViewPlan/Sellar.
+- Which operational observations deserve first-class structured Account attributes (delivery windows, access, call-ahead, etc.) versus remaining timeline observations.
 
 Record the evidence and update this document when those decisions are made.
