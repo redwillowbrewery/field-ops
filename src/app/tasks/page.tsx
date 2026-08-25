@@ -2,7 +2,8 @@ import { BottomNav } from "@/components/bottom-nav";
 import { TaskCard } from "@/components/task-card";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
-type TaskAccount = { brewery_available?: boolean | null } | { brewery_available?: boolean | null }[] | null;
+type AccountRef = { id:string; name:string; town:string|null; postcode:string|null; brewery_available?:boolean|null };
+type TaskAccount = AccountRef | AccountRef[] | null;
 type TaskRow = { id:string; title:string; task_type:string; due_at:string|null; status:string; account:TaskAccount };
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
