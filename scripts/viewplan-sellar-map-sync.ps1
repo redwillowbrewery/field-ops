@@ -8,7 +8,7 @@ if (-not $SupabaseUrl) { throw "NEXT_PUBLIC_SUPABASE_URL is not set." }
 if (-not $ServiceRoleKey) { throw "SUPABASE_SERVICE_ROLE_KEY is not set." }
 
 $baseUrl = $SupabaseUrl.TrimEnd('/')
-$userAgent = "RedWillow-ViewPlan-Sellar-Map-Sync/1.2"
+$userAgent = "RedWillow-ViewPlan-Sellar-Map-Sync/1.3"
 $headers = @{
     apikey = $ServiceRoleKey
     "Content-Type" = "application/json; charset=utf-8"
@@ -74,6 +74,7 @@ Write-Host "Field Ops - ViewPlan Sellar mapping sync"
 Write-Host "-----------------------------------------"
 Write-Host "ViewPlan: READ ONLY"
 Write-Host "Source mapping: tblImport_Product_Map.ecom_trade2_variant_id"
+Write-Host "Saleability: canonical ViewPlan product/package mapping"
 Write-Host "Authority: ViewPlan mapping replaces conflicting Sellar mappings"
 
 try {
@@ -92,7 +93,6 @@ SELECT
 FROM tblImport_Product_Map
 WHERE ecom_trade2_variant_id Is Not Null
   AND ecom_trade2_variant_id <> ''
-  AND is_available = True
 "@)
 
 $rows = @()
@@ -106,10 +106,10 @@ while (-not $rs.EOF) {
 }
 $rs.Close()
 
-Write-Host "Mapped ViewPlan rows: $($rows.Count)"
+Write-Host "ViewPlan rows with Sellar IDs: $($rows.Count)"
 $linked = 0
 $relinked = 0
-$missingCanonical = 0
+$skippedNoCanonical = 0
 $invalidCanonical = 0
 $index = 0
 
@@ -119,9 +119,11 @@ foreach ($row in $rows) {
     $vpEncoded = UrlEncode $viewplanExternalId
     $variantId = Get-FirstField "product_variant_external_ids?system=eq.viewplan&external_id=eq.$vpEncoded&select=product_variant_id&limit=1" "product_variant_id"
 
+    # The canonical ViewPlan product sync only creates/maps variants for products and
+    # packages that are currently saleable in ViewPlan. If no canonical mapping exists,
+    # treat the import-map row as stale/non-saleable rather than creating a Sellar bridge.
     if (-not $variantId) {
-        Write-Warning "No canonical ViewPlan variant mapping for $viewplanExternalId"
-        $missingCanonical++
+        $skippedNoCanonical++
         continue
     }
     if (-not (Is-ValidUuid $variantId)) {
@@ -148,7 +150,7 @@ foreach ($row in $rows) {
 
 Write-Host ""
 Write-Host "ViewPlan Sellar mapping sync complete."
-Write-Host "Already correct/new:   $linked"
-Write-Host "Corrected mappings:    $relinked"
-Write-Host "Missing canonical:     $missingCanonical"
-Write-Host "Invalid canonical IDs: $invalidCanonical"
+Write-Host "Already correct/new:      $linked"
+Write-Host "Corrected mappings:       $relinked"
+Write-Host "Skipped non-canonical:    $skippedNoCanonical"
+Write-Host "Invalid canonical IDs:    $invalidCanonical"
