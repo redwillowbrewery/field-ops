@@ -10,7 +10,7 @@ export default async function AccountSalesPage({params}:{params:Promise<{id:stri
  const {id}=await params;const supabase=await createSupabaseServerClient();
  const {data:account}=await supabase.from("accounts").select("id,name,town,postcode").eq("id",id).single();if(!account)notFound();
  const {data:orders,error}=await supabase.from("sales_orders").select("id,viewplan_order_no,order_date,delivery_date,sales_channel,net_amount,invoice_no").eq("account_id",id).order("order_date",{ascending:false});if(error)throw error;
- const orderRows=(orders||[]) as Order[];const ids=orderRows.map(o=>o.id);let lines:Line[]=[];
+ const orderRows=(orders||[]) as Order[];const ids=orderRows.map(o=>o.id);const lines:Line[]=[];
  for(let i=0;i<ids.length;i+=200){const batch=ids.slice(i,i+200);if(!batch.length)continue;const {data,error:lineError}=await supabase.from("sales_order_lines").select("order_id,product_name,package_type,quantity,net_after_discount,line_type").in("order_id",batch);if(lineError)throw lineError;lines.push(...((data||[]) as Line[]));}
  const revenue=orderRows.reduce((s,o)=>s+Number(o.net_amount||0),0);const avg=orderRows.length?revenue/orderRows.length:0;const sellar=orderRows.filter(o=>(o.sales_channel||"").toLowerCase()==="sellar").length;
  const orderDates=orderRows.map(o=>new Date(`${o.order_date}T00:00:00`).getTime()).sort((a,b)=>a-b);const gaps=orderDates.slice(1).map((d,i)=>(d-orderDates[i])/86400000);const typicalGap=gaps.length?median(gaps):null;
