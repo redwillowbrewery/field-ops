@@ -27,9 +27,9 @@ if ($Module -eq "all" -or $Module -eq "customers") {
 }
 
 if ($Module -eq "all" -or $Module -eq "products") {
-    Run-Module "Products / variants / price lists" "viewplan-connector-reconcile.ps1" @{
+    Run-Module "Products / variants / price lists / Sellar mappings" "viewplan-connector-reconcile.ps1" @{
         ModuleName = "products"
-        ScriptName = "viewplan-price-sync.ps1"
+        ScriptName = "viewplan-products-sync.ps1"
     }
 }
 
