@@ -80,16 +80,90 @@ Consumers:
 - Undecorated Price List.
 - Future Order Capture.
 
-## Priority 2 — sales/orders connector and effectiveness reporting
+## Priority 2 — role-centric UX foundation
 
-### P2.1 Incremental ViewPlan orders/sales connector
+### P2.1 Role-centric navigation and information architecture
+
+Goal: each operational role sees the minimum information needed to make the next decision/action, while all roles use the same canonical data.
+
+Initial role lenses:
+- Driver / dray.
+- Salesperson.
+- Bar manager.
+- Production / warehouse.
+- Management/admin where needed.
+
+Rules:
+- do not create duplicate role-specific Account/Product/Stock records;
+- role-specific screens are views/workflows over canonical concepts;
+- mobile-first for driver/sales/bar operational workflows;
+- hide advanced detail until requested;
+- one obvious primary action per screen where practical.
+
+### P2.2 Driver account/stop view
+
+Goal: give the driver only what they need at a stop.
+
+Primary information:
+- address/navigation;
+- number and type of expected empties/returns;
+- collection/delivery priority;
+- delivery/collection window;
+- call-ahead requirement and best contact;
+- access/parking/location notes;
+- relevant delivery/collection instructions.
+
+Primary actions:
+- Navigate.
+- Call.
+- Mark collected/delivered as appropriate.
+- Capture observation.
+
+Avoid exposing sales pricing/history/CRM detail unless explicitly useful.
+
+### P2.3 Canonical observations
+
+Goal: allow operational users to enrich shared account knowledge with very low friction.
+
+- Introduce/clarify `Observation` concept linked to Account and source workflow.
+- Support short free-text observation first; optional structured type later.
+- Capture user, role, timestamp and source context.
+- Show relevant observations in account timeline/knowledge.
+- Allow durable observations to be promoted into structured account attributes.
+
+Candidate durable attributes:
+- call ahead required + lead time;
+- delivery/collection window;
+- access/parking instructions;
+- preferred delivery point;
+- regular closed days;
+- other operational handling notes.
+
+Acceptance:
+- a driver can record a useful observation in a few seconds;
+- sales/ops can see that knowledge later without needing a separate driver database.
+
+### P2.4 UI refactor pass
+
+Goal: prevent feature growth from turning key screens into button collections.
+
+- Review Account detail action hierarchy.
+- Review bottom/top navigation by role/context.
+- Remove duplicates and rarely used top-level actions.
+- Use progressive disclosure/settings menus for lower-frequency operations.
+- Establish reusable patterns for primary/secondary actions, badges, freshness indicators and compact account knowledge.
+- Test on phone first for field roles.
+
+## Priority 3 — sales/orders connector and effectiveness reporting
+
+### P3.1 Incremental ViewPlan orders/sales connector
 
 - Bring orders/order items into canonical order/sales history automatically.
 - Maintain external IDs and incremental high-water mark.
 - Exclude invalid/unavailable customer records according to connector rules.
 - Display connector freshness.
 
-### P2.2 Sales Activity Effectiveness dashboard
+### P3.2 Sales Activity Effectiveness dashboard
 
 Measure:
 - contacts followed by order within 7/14/30 days;
@@ -102,15 +176,15 @@ Measure:
 
 Use association language, not unsupported causal attribution.
 
-### P2.3 Interaction logging completeness
+### P3.3 Interaction logging completeness
 
 - Ensure call/email/visit interactions are captured consistently.
 - Move from notes-as-proxy toward canonical `Interaction` where appropriate.
 - Preserve timeline compatibility.
 
-## Priority 3 — order capture
+## Priority 4 — order capture
 
-### P3.1 Lightweight sales order capture
+### P4.1 Lightweight sales order capture
 
 - Start from canonical availability and effective customer price.
 - Respect account package/container preference.
@@ -118,32 +192,34 @@ Use association language, not unsupported causal attribution.
 - Recheck availability before commit.
 - Initially hand off to the existing order-processing authority safely.
 
-### P3.2 Allocation model
+### P4.2 Allocation model
 
 - Introduce canonical allocation once Brewery Ops order state can reserve stock.
 - Availability becomes `physical - allocated - held` when authoritative inputs exist.
 
-## Priority 4 — returnable container operations
+## Priority 5 — returnable container operations
 
-### P4.1 Returns Near Me field trial
+### P5.1 Returns Near Me field trial
 
 - Trial with drays.
 - Validate location accuracy and useful package counts.
 - Capture operational feedback: detour threshold, ageing, collection priority.
+- Use trial observations to shape the Driver stop view rather than adding generic account-page controls.
 
-### P4.2 Canonical returnable movement/history
+### P5.2 Canonical returnable movement/history
 
 - Represent dispatched / off-site / returned / lost / blocked movements.
 - Keep individual `Container` distinct from Package and Product Variant.
 
-### P4.3 Collection planning
+### P5.3 Collection planning
 
 - Suggested returns near current route/location.
 - Weight by container count, age and detour cost.
+- Include delivery/collection windows and operational constraints when known.
 
-## Priority 5 — CRM refinement
+## Priority 6 — CRM refinement
 
-### P5.1 Quick Email hardening
+### P6.1 Quick Email hardening
 
 - Keep Cask/Keg/Can top-level selection simple.
 - Show actual canonical package in preview/email.
@@ -151,24 +227,24 @@ Use association language, not unsupported causal attribution.
 - Eventually use actual outbound Microsoft 365 send rather than `mailto:`.
 - Log actual send only when delivery action is known, not when prepared.
 
-### P5.2 Customer communications
+### P6.2 Customer communications
 
 - One-click current availability/price email.
 - Decorated brochure/price list.
 - Undecorated lightweight table.
 - Sellar/channel link remains secondary product-detail link until replaced.
 
-### P5.3 Account search and activity UX
+### P6.3 Account search and activity UX
 
 - Incremental account-name narrowing/autocomplete.
 - Calls/emails update canonical interaction timeline.
 - Maintain consistent Home/Accounts navigation.
 
-## Priority 6 — production and stock module replacement of ViewPlan
+## Priority 7 — production and stock module replacement of ViewPlan
 
 This is the strategic migration path, not a near-term clone of ViewPlan.
 
-### P6.1 Product/batch production model
+### P7.1 Product/batch production model
 
 - Product.
 - Batch/Gyle.
@@ -176,7 +252,7 @@ This is the strategic migration path, not a near-term clone of ViewPlan.
 - Packaging event.
 - Packaged stock by Product Variant/location/batch.
 
-### P6.2 Stock ledger
+### P7.2 Stock ledger
 
 Prefer stock movements/events over mutable magic totals where practical.
 
@@ -190,13 +266,13 @@ Potential events:
 - quarantined/released;
 - consumed/destroyed.
 
-### P6.3 Brewery Ops becomes availability authority
+### P7.3 Brewery Ops becomes availability authority
 
 - Physical stock + allocation + hold -> canonical available quantity.
 - Sellar becomes outbound availability/commerce adapter.
 - Reconciliation detects channel drift.
 
-### P6.4 Retire ViewPlan adapters incrementally
+### P7.4 Retire ViewPlan adapters incrementally
 
 Replace one bounded authority at a time without changing consuming features.
 
@@ -224,5 +300,8 @@ When adding a new backlog item, identify:
 3. Target future authority.
 4. Whether this creates or reduces external coupling.
 5. What exact mapping/adapter is required.
+6. Which user role needs the information/action.
+7. What information can be removed/hidden to make that workflow faster.
+8. Whether observations from the workflow should enrich shared account knowledge.
 
 Do not prioritise a shortcut that makes ViewPlan/Sellar harder to replace unless it is explicitly documented as temporary technical debt.
