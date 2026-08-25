@@ -19,6 +19,7 @@ export default async function MapPage() {
       .not("latitude", "is", null)
       .not("longitude", "is", null)
       .eq("active", true)
+      .or("brewery_available.is.null,brewery_available.eq.true")
       .limit(2500),
     supabase
       .from("tasks")
@@ -29,7 +30,7 @@ export default async function MapPage() {
       .limit(1000),
     supabase
       .from("appointments")
-      .select("id,starts_at,purpose,status,account:accounts(id,name,town,postcode,latitude,longitude)")
+      .select("id,starts_at,purpose,status,account:accounts(id,name,town,postcode,latitude,longitude,brewery_available)")
       .eq("assigned_to", userId)
       .eq("status", "planned")
       .gte("starts_at", todayStart.toISOString())
@@ -55,7 +56,7 @@ export default async function MapPage() {
 
   const todaysAppointments = (appointments || []).flatMap((appointment) => {
     const account = Array.isArray(appointment.account) ? appointment.account[0] : appointment.account;
-    if (!account?.latitude || !account?.longitude) return [];
+    if (!account?.latitude || !account?.longitude || account.brewery_available === false) return [];
     return [{
       id: appointment.id,
       starts_at: appointment.starts_at,
