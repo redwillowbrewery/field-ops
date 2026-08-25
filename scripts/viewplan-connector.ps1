@@ -27,13 +27,11 @@ if ($Module -eq "all" -or $Module -eq "customers") {
 }
 
 if ($Module -eq "all" -or $Module -eq "products") {
-    Write-Warning "Products currently use the proven canonical full reconciliation script; batched incremental conversion is the next connector step."
-    Run-Module "Products / variants / price lists" "viewplan-price-sync.ps1"
+    Run-Module "Products / variants / price lists" "viewplan-connector-reconcile.ps1" @("-ModuleName","products","-ScriptName","viewplan-price-sync.ps1")
 }
 
 if ($Module -eq "all" -or $Module -eq "pricing") {
-    Write-Warning "Customer pricing currently uses full reconciliation; it will be converted to batched connector state next."
-    Run-Module "Customer pricing" "viewplan-customer-pricing-sync.ps1"
+    Run-Module "Customer pricing" "viewplan-connector-reconcile.ps1" @("-ModuleName","pricing","-ScriptName","viewplan-customer-pricing-sync.ps1")
 }
 
 Write-Host ""
