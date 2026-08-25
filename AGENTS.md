@@ -10,9 +10,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Brewery Ops architecture guardrail
 
-Before changing domain models, integrations, availability, pricing, product/package semantics, stock, orders, containers or CRM business rules, read:
+Before changing domain models, integrations, availability, pricing, product/package semantics, stock, orders, containers, CRM business rules or cross-functional workflows, read:
 
 - `docs/architecture.md` — canonical concepts, integration boundaries and architectural principles.
+- `docs/workflow-design.md` — end-to-end workflow, low-friction task completion and cross-role orchestration principles.
 - `docs/backlog.md` — prioritised migration path and accepted direction.
+- `docs/sprints.md` — current sprint/branch delivery structure.
 
-Key rule: **Brewery Ops owns the business truth; ViewPlan, Sellar and other external systems are adapters.** Application features should consume canonical Brewery Ops concepts/services and must not embed external-system semantics where a canonical rule belongs.
+Key rules:
+
+- **Brewery Ops owns the business truth; ViewPlan, Sellar and other external systems are adapters.** Application features should consume canonical Brewery Ops concepts/services and must not embed external-system semantics where a canonical rule belongs.
+- **Complete the business outcome, not the screen.** Minimise module switching and repeated data entry; carry context through the workflow and derive downstream tasks/actions from canonical state where possible.
