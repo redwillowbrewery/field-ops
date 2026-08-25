@@ -5,7 +5,7 @@ alter table public.account_containers_snapshot
   add column if not exists is_empty boolean,
   add column if not exists blocked boolean,
   add column if not exists deleted boolean,
-  add column if not exists is_returnable boolean not null default true;
+  add column if not exists is_returnable boolean not null default false;
 
 create unique index if not exists account_containers_snapshot_viewplan_inventory_uidx
   on public.account_containers_snapshot(viewplan_packaging_inventory_id)
@@ -24,8 +24,10 @@ insert into public.packaging_type_classification(package_type,is_returnable,note
   ('50L E-Keg',false,'One-way container'),
   ('50L E-Key',false,'One-way container'),
   ('Key Keg',false,'One-way container'),
+  ('30L Kegstar',false,'Third-party pool container; excluded from brewery pickup until confirmed'),
   ('Firkin',true,'Returnable brewery container'),
   ('Pin',true,'Returnable brewery container'),
+  ('Backfill Pin',true,'Returnable brewery container'),
   ('Pin (Flat Bottom)',true,'Returnable brewery container'),
   ('Kilderkin',true,'Returnable brewery container'),
   ('30 Litre Steel',true,'Returnable brewery container'),
@@ -41,14 +43,17 @@ on public.packaging_type_classification for select to authenticated using (true)
 create or replace view public.account_returnables_summary as
 select
   s.account_id,
-  count(*) filter (where s.is_returnable and not coalesce(s.lost,false))::integer as returnable_count,
-  max(s.off_site_days) filter (where s.is_returnable and not coalesce(s.lost,false))::integer as oldest_days,
-  jsonb_object_agg(s.container_type, s.qty) filter (where s.is_returnable and not coalesce(s.lost,false)) as package_breakdown
+  sum(s.qty)::integer as returnable_count,
+  max(s.off_site_days)::integer as oldest_days,
+  jsonb_object_agg(s.container_type, s.qty) as package_breakdown
 from (
-  select account_id, container_type, is_returnable, lost, max(off_site_days) as off_site_days, count(*)::integer as qty
+  select account_id, container_type, max(off_site_days) as off_site_days, count(*)::integer as qty
   from public.account_containers_snapshot
   where coalesce(on_site,false)=false
-  group by account_id, container_type, is_returnable, lost
+    and is_returnable=true
+    and coalesce(lost,false)=false
+    and coalesce(deleted,false)=false
+  group by account_id, container_type
 ) s
 group by s.account_id;
 
