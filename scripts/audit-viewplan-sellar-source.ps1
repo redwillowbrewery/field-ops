@@ -32,13 +32,13 @@ foreach ($target in $Targets) {
     $rsProducts = $db.OpenRecordset(@"
 SELECT brew_type_id, brew_product_name, allow_sale
 FROM tblBrew_Type
-WHERE brew_product_name='$targetSql'
+WHERE brew_product_name Like '*$targetSql*'
 ORDER BY brew_type_id DESC
 "@)
 
     $brewIds = New-Object System.Collections.Generic.List[int]
     if ($rsProducts.EOF) {
-        Write-Host "No exact tblBrew_Type name match."
+        Write-Host "No tblBrew_Type name containing '$target'."
     }
     else {
         Write-Host "tblBrew_Type:"
