@@ -8,7 +8,11 @@ if (-not $SupabaseUrl) { throw "NEXT_PUBLIC_SUPABASE_URL is not set." }
 if (-not $ServiceRoleKey) { throw "SUPABASE_SERVICE_ROLE_KEY is not set." }
 
 $baseUrl = $SupabaseUrl.TrimEnd('/')
-$headers = @{ apikey = $ServiceRoleKey; "Content-Type" = "application/json; charset=utf-8" }
+$headers = @{
+    apikey = $ServiceRoleKey
+    Authorization = "Bearer $ServiceRoleKey"
+    "Content-Type" = "application/json; charset=utf-8"
+}
 
 function Invoke-Supa([string]$method, [string]$path, $body = $null, [string]$prefer = $null) {
     $h = @{} + $headers
@@ -40,12 +44,24 @@ try { $access = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Appli
 catch { throw "Could not attach to running ViewPlan. Open/login first and use 32-bit PowerShell." }
 $db = $access.CurrentDb()
 
+# brewery_customer_id is the canonical ViewPlan customer key populated by the customer connector.
 $accountMap = @{}
 for ($from = 0; ; $from += 1000) {
-    $page = @(Invoke-Supa "Get" "account_external_ids?system=eq.viewplan&select=external_id,account_id&offset=$from&limit=1000")
-    foreach ($m in $page) { $accountMap[[string]$m.external_id] = [string]$m.account_id }
+    $page = @(Invoke-Supa "Get" "accounts?brewery_customer_id=not.is.null&select=id,brewery_customer_id&offset=$from&limit=1000")
+    foreach ($a in $page) { $accountMap[[string]$a.brewery_customer_id] = [string]$a.id }
     if ($page.Count -lt 1000) { break }
 }
+
+# Legacy/fallback bridge only. Do not depend on it for normal container mapping.
+for ($from = 0; ; $from += 1000) {
+    $page = @(Invoke-Supa "Get" "account_external_ids?system=eq.viewplan&select=external_id,account_id&offset=$from&limit=1000")
+    foreach ($m in $page) {
+        $key = [string]$m.external_id
+        if (-not $accountMap.ContainsKey($key)) { $accountMap[$key] = [string]$m.account_id }
+    }
+    if ($page.Count -lt 1000) { break }
+}
+Write-Host "ViewPlan account mappings loaded: $($accountMap.Count)"
 
 $classMap = @{}
 foreach ($c in @(Invoke-Supa "Get" "packaging_type_classification?select=package_type,is_returnable")) {
@@ -61,7 +77,9 @@ ORDER BY off_site_days DESC
 $rs = $db.OpenRecordset($sql)
 $rows = New-Object System.Collections.Generic.List[object]
 $unmatched = New-Object System.Collections.Generic.HashSet[string]
+$sourceRows = 0
 while (-not $rs.EOF) {
+    $sourceRows++
     $customerId = Db $rs "customer_id"
     $accountId = if ($null -ne $customerId) { $accountMap[[string]$customerId] } else { $null }
     if (-not $accountId) {
@@ -117,9 +135,18 @@ while (-not $rs.EOF) {
 $rs.Close()
 
 $collectible = @($rows | Where-Object { $_.is_returnable -and -not $_.lost })
-Write-Host "Off-site rows prepared: $($rows.Count)"
+Write-Host "ViewPlan off-site source rows: $sourceRows"
+Write-Host "Off-site rows prepared:       $($rows.Count)"
 Write-Host "Unmatched ViewPlan customers: $($unmatched.Count)"
-Write-Host "Collectible returnables: $($collectible.Count)"
+Write-Host "Collectible returnables:      $($collectible.Count)"
+
+# Safety: never replace a populated/expected snapshot when source rows exist but mapping failed.
+if ($sourceRows -gt 0 -and $rows.Count -eq 0) {
+    throw "Container sync aborted: ViewPlan returned $sourceRows off-site rows but none mapped to Brewery Ops accounts. Existing snapshot has NOT been replaced."
+}
+if ($sourceRows -gt 0 -and $rows.Count -lt [Math]::Floor($sourceRows * 0.90)) {
+    throw "Container sync aborted: only $($rows.Count) of $sourceRows off-site rows mapped to Brewery Ops accounts. Existing snapshot has NOT been replaced."
+}
 
 # Snapshot replacement only begins after the entire ViewPlan read/mapping phase has succeeded.
 Invoke-Supa "Delete" "account_containers_snapshot?id=not.is.null" $null "return=minimal" | Out-Null
