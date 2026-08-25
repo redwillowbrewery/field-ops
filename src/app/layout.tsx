@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { CRMEnhancements } from "@/components/crm-enhancements";
+import { SyncStatusFooter } from "@/components/sync-status-footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,14 +15,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Field Ops",
-  description: "RedWillow field sales CRM",
+  title: "Brewery Ops",
+  description: "RedWillow Brewery Ops",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-slate-50 font-sans"><CRMEnhancements />{children}</body>
+      <body className="min-h-full bg-slate-50 font-sans">
+        <CRMEnhancements />
+        {children}
+        <SyncStatusFooter />
+      </body>
     </html>
   );
 }
