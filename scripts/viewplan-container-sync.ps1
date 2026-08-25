@@ -19,12 +19,17 @@ function Invoke-Supa([string]$method, [string]$path, $body = $null, [string]$pre
     if ($prefer) { $h["Prefer"] = $prefer }
     $args = @{ Method = $method; Uri = "$baseUrl/rest/v1/$path"; Headers = $h; UserAgent = "RedWillow-ViewPlan-Connector/1.0" }
     if ($null -ne $body) {
-        $json = ConvertTo-Json -InputObject $body -Depth 8 -Compress
+        $json = ConvertTo-Json -InputObject $body -Depth 10 -Compress
         $args["Body"] = [Text.Encoding]::UTF8.GetBytes($json)
         $args["ContentType"] = "application/json; charset=utf-8"
     }
     try { return Invoke-RestMethod @args }
-    catch { throw "Supabase $method $path failed:`n$($_.Exception.Message)`n$($_.ErrorDetails.Message)" }
+    catch {
+        $parts = @()
+        if ($_.Exception.Message) { $parts += $_.Exception.Message }
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $parts += $_.ErrorDetails.Message }
+        throw "Supabase $method $path failed:`n$(($parts | Select-Object -Unique) -join "`n")"
+    }
 }
 function Db($rs, [string]$name) {
     $v = $rs.Fields.Item($name).Value
@@ -35,45 +40,19 @@ function IsoDate($v) {
     if ($null -eq $v) { return $null }
     return ([datetime]$v).ToString("yyyy-MM-dd")
 }
+function BoolValue($v) {
+    if ($null -eq $v) { return $false }
+    return [bool]$v
+}
 
 Write-Host "Field Ops - ViewPlan container snapshot sync"
 Write-Host "-------------------------------------------"
 Write-Host "ViewPlan: READ ONLY"
+Write-Host "Account resolution: Supabase server-side"
 
 try { $access = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Application") }
 catch { throw "Could not attach to running ViewPlan. Open/login first and use 32-bit PowerShell." }
 $db = $access.CurrentDb()
-
-# Reconcile the legacy bridge server-side, then read the canonical ViewPlan key directly
-# from accounts. The service-role Authorization header above is required for reliable REST reads.
-$mappingStats = @(Invoke-Supa "Post" "rpc/reconcile_viewplan_account_mappings" @{} "return=representation")
-if ($mappingStats.Count) {
-    Write-Host "Accounts with ViewPlan ID:  $($mappingStats[0].accounts_with_viewplan_id)"
-    Write-Host "ViewPlan external bridges:  $($mappingStats[0].external_bridges)"
-}
-
-$accountMap = @{}
-$mappingRows = 0
-for ($from = 0; ; $from += 1000) {
-    $page = @(Invoke-Supa "Get" "accounts?brewery_customer_id=not.is.null&select=id,brewery_customer_id&order=brewery_customer_id.asc&offset=$from&limit=1000")
-    foreach ($a in $page) {
-        if ($null -ne $a.brewery_customer_id -and $a.id) {
-            $accountMap[[string]$a.brewery_customer_id] = [string]$a.id
-            $mappingRows++
-        }
-    }
-    if ($page.Count -lt 1000) { break }
-}
-Write-Host "ViewPlan account rows read:      $mappingRows"
-Write-Host "ViewPlan account mappings loaded: $($accountMap.Count)"
-if ($mappingRows -lt 1000 -or $accountMap.Count -lt 1000) {
-    throw "Container sync aborted: only $mappingRows ViewPlan account rows / $($accountMap.Count) unique mappings were loaded from Brewery Ops. Expected approximately 1900. Existing snapshot has NOT been replaced."
-}
-
-$classMap = @{}
-foreach ($c in @(Invoke-Supa "Get" "packaging_type_classification?select=package_type,is_returnable")) {
-    $classMap[[string]$c.package_type] = [bool]$c.is_returnable
-}
 
 $sql = @"
 SELECT * FROM qryPackageInventory
@@ -83,31 +62,18 @@ ORDER BY off_site_days DESC
 "@
 $rs = $db.OpenRecordset($sql)
 $rows = New-Object System.Collections.Generic.List[object]
-$unmatched = New-Object System.Collections.Generic.HashSet[string]
-$sourceRows = 0
 while (-not $rs.EOF) {
-    $sourceRows++
     $customerId = Db $rs "customer_id"
-    $accountId = if ($null -ne $customerId) { $accountMap[[string]$customerId] } else { $null }
-    if (-not $accountId) {
-        if ($null -ne $customerId) { [void]$unmatched.Add([string]$customerId) }
-        $rs.MoveNext()
-        continue
-    }
-
-    $package = [string](Db $rs "packaging_type")
     $inventoryId = [int64](Db $rs "packaging_inventory_id")
     $itemNo = [string](Db $rs "packaging_inventory_item_no")
     if ([string]::IsNullOrWhiteSpace($itemNo)) { $itemNo = [string]$inventoryId }
-    $isReturnable = if ($classMap.ContainsKey($package)) { $classMap[$package] } else { $false }
     $importedAt = [datetime]::UtcNow.ToString("o")
 
     $rows.Add([pscustomobject]@{
-        account_id = $accountId
         viewplan_packaging_inventory_id = $inventoryId
         viewplan_customer_id = if ($null -ne $customerId) { [int64]$customerId } else { $null }
         viewplan_item_no = $itemNo
-        container_type = $package
+        container_type = [string](Db $rs "packaging_type")
         contents = Db $rs "contents"
         gyle = Db $rs "brew_no"
         package_date = IsoDate (Db $rs "packaging_date")
@@ -122,49 +88,40 @@ while (-not $rs.EOF) {
         delivery_postcode = Db $rs "delivery_postcode"
         customer_class = Db $rs "customer_class"
         location_zone = Db $rs "zone_description"
-        dispatched = Db $rs "is_dispatched"
-        delivered = Db $rs "is_delivered"
+        dispatched = BoolValue (Db $rs "is_dispatched")
+        delivered = BoolValue (Db $rs "is_delivered")
         usage_count = Db $rs "usage_count"
-        leased = Db $rs "is_leased"
+        leased = BoolValue (Db $rs "is_leased")
         lease_expiry = IsoDate (Db $rs "lease_expiry_date")
         serial_no = Db $rs "packaging_inventory_serial_no"
         comment = Db $rs "comment"
-        lost = [bool](Db $rs "is_lost")
-        on_site = [bool](Db $rs "on_site")
-        is_empty = [bool](Db $rs "is_empty")
-        blocked = [bool](Db $rs "is_blocked")
-        deleted = [bool](Db $rs "tblPackaging_Inventory.is_deleted")
-        is_returnable = $isReturnable
+        lost = BoolValue (Db $rs "is_lost")
+        on_site = BoolValue (Db $rs "on_site")
+        is_empty = BoolValue (Db $rs "is_empty")
+        blocked = BoolValue (Db $rs "is_blocked")
+        deleted = BoolValue (Db $rs "tblPackaging_Inventory.is_deleted")
         imported_at = $importedAt
     })
     $rs.MoveNext()
 }
 $rs.Close()
 
-$collectible = @($rows | Where-Object { $_.is_returnable -and -not $_.lost })
-Write-Host "ViewPlan off-site source rows: $sourceRows"
-Write-Host "Off-site rows prepared:       $($rows.Count)"
-Write-Host "Unmatched ViewPlan customers: $($unmatched.Count)"
-Write-Host "Collectible returnables:      $($collectible.Count)"
-
-if ($sourceRows -gt 0 -and $rows.Count -eq 0) {
-    throw "Container sync aborted: ViewPlan returned $sourceRows off-site rows but none mapped to Brewery Ops accounts. Existing snapshot has NOT been replaced."
-}
-if ($sourceRows -gt 0 -and $rows.Count -lt [Math]::Floor($sourceRows * 0.90)) {
-    throw "Container sync aborted: only $($rows.Count) of $sourceRows off-site rows mapped to Brewery Ops accounts. Existing snapshot has NOT been replaced."
+$rowArray = @($rows | ForEach-Object { $_ })
+Write-Host "ViewPlan off-site source rows: $($rowArray.Count)"
+if ($rowArray.Count -eq 0) {
+    Write-Warning "ViewPlan returned no off-site container rows. Snapshot has NOT been replaced."
+    exit 0
 }
 
-Invoke-Supa "Delete" "account_containers_snapshot?id=not.is.null" $null "return=minimal" | Out-Null
-$chunkSize = 250
-for ($i = 0; $i -lt $rows.Count; $i += $chunkSize) {
-    $end = [Math]::Min($i + $chunkSize - 1, $rows.Count - 1)
-    $chunk = @($rows[$i..$end])
-    Invoke-Supa "Post" "account_containers_snapshot" $chunk "return=minimal" | Out-Null
-    Write-Host "Containers synced: $($end + 1)/$($rows.Count)"
-}
+Write-Host "Sending snapshot to Brewery Ops for server-side account resolution..."
+$result = @(Invoke-Supa "Post" "rpc/sync_viewplan_containers" @{ payload = $rowArray } "return=representation")
+if (-not $result.Count) { throw "Container sync RPC returned no result." }
 
+$stats = $result[0]
+Write-Host "Mapped rows:             $($stats.mapped_rows)/$($stats.source_rows)"
+Write-Host "Unmatched customers:     $($stats.unmatched_customers)"
+Write-Host "Collectible returnables: $($stats.collectible_rows)"
 Write-Host ""
 Write-Host "ViewPlan container snapshot sync complete."
-Write-Host "Rows synced: $($rows.Count)"
-Write-Host "Collectible: $($collectible.Count)"
-if ($unmatched.Count) { Write-Warning "Unmatched ViewPlan customer IDs: $([string]::Join(', ', @($unmatched)))" }
+Write-Host "Rows synced: $($stats.mapped_rows)"
+Write-Host "Collectible: $($stats.collectible_rows)"
