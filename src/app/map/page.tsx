@@ -82,7 +82,10 @@ export default async function MapPage() {
               <h1 className="mt-1 text-2xl font-semibold tracking-tight">Map</h1>
               <p className="mt-1 text-sm text-slate-500">Find nearby accounts when you have a gap in the day.</p>
             </div>
-            <Link href="/prospects/new" className="inline-flex h-10 shrink-0 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">+ Add prospect</Link>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link href="/returns" className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Returns near me</Link>
+              <Link href="/prospects/new" className="inline-flex h-10 shrink-0 items-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">+ Add prospect</Link>
+            </div>
           </div>
         </div>
       </header>
