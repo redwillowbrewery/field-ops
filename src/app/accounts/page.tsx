@@ -28,6 +28,7 @@ export default async function AccountsPage({
        sales:account_sales_snapshot(last_order_date,total_spend,total_orders)`,
       { count: "exact" }
     )
+    .or("brewery_available.is.null,brewery_available.eq.true")
     .order("name", { ascending: true })
     .limit(100);
 
@@ -42,7 +43,7 @@ export default async function AccountsPage({
   const [{ data: accounts, count, error }, { data: classificationRows }, { data: territoryRows }] =
     await Promise.all([
       query,
-      supabase.from("accounts").select("classification").not("classification", "is", null),
+      supabase.from("accounts").select("classification").or("brewery_available.is.null,brewery_available.eq.true").not("classification", "is", null),
       supabase.from("territories").select("name").order("name"),
     ]);
 
