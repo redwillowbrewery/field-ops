@@ -8,7 +8,9 @@ This document defines a non-negotiable Brewery Ops requirement: traceability and
 
 > **Every material, product and significant business action should have provenance: what, which batch/lot, who, when, where and why.**
 
-Container returnability and product traceability are separate concerns. A package may be one-way and therefore have no reusable `Container` asset to recover, but Brewery Ops must still know which Product and Batch/Gyle was packaged, sold and dispatched to which customer.
+The primary finished-product traceability object is the **packaged product/lot**, not the physical container. Brewery Ops must know what Product and Batch/Gyle was packaged into which Package, in what quantity, and where that packaged product subsequently went.
+
+A physical `Container` asset is a separate concern and is only required where the business needs to manage the reusable asset itself (for example collecting brewery-owned casks/kegs). Product traceability must never depend on having an individually tracked container.
 
 Auditability is broader still: Brewery Ops should be able to reconstruct how a product was made and handled, which raw-material lots were consumed, which people performed or authorised significant actions, when those actions happened, and what downstream product/customer records were affected.
 
@@ -91,11 +93,26 @@ Finished beer / Batch X
 
 Examples:
 
-- Firkin: returnable physical container **and** batch/customer traceability.
-- 30L steel keg: returnable physical container **and** batch/customer traceability.
-- E-Cask: no returnable container asset required, but **full batch/customer traceability remains mandatory**.
-- E-Keg / Key Keg: no returnable container asset required, but **full batch/customer traceability remains mandatory**.
-- Cans/cases: no returnable container asset, but **full batch/customer traceability remains mandatory**.
+- Firkin: packaged product is batch-traceable; the physical firkin may additionally be a returnable Container asset.
+- 30L steel keg: packaged product is batch-traceable; the physical keg may additionally be a returnable Container asset.
+- E-Cask: packaged product is fully batch/customer traceable; no reusable Container asset is required.
+- E-Keg / Key Keg: packaged product is fully batch/customer traceable; no reusable Container asset is required.
+- Cans/cases: packaged product is fully batch/customer traceable; no reusable Container asset is required.
+
+For normal recall/traceability purposes Brewery Ops does **not** need a serial-number identity for every cask, keg or can. It needs to preserve the relationship between the packaged quantity and its Batch/Gyle.
+
+For example:
+
+```text
+Gyle F241
+  -> packaging event: 24 x Firkin
+  -> packaged lot: F241 / Firkin / 2026-08-26
+  -> 8 allocated to Order A
+  -> 6 dispatched to Customer A
+  -> 10 remain in stock
+```
+
+The traceability requirement is therefore about **what is inside the package and where that packaged product went**, rather than tracking the lifecycle of every physical vessel.
 
 Brewery Ops must ultimately be able to traverse both directions:
 
@@ -174,9 +191,13 @@ performed_by
 performed_at
 ```
 
-A Packaging Event is required for both returnable and one-way packages.
+A Packaging Event is required for cask, keg, can, bottle and other packaged formats regardless of whether the package/container is reusable.
 
 ### Packaged Lot / Stock Provenance
+
+A Packaged Lot represents a quantity of Product from a specific Batch/Gyle packaged in a specific Package through a Packaging Event.
+
+It does **not** imply that each physical package has an individual serial-number identity.
 
 Packaged stock must retain its Batch/Gyle provenance. Stock totals alone are insufficient if they merge quantities from multiple batches without preserving lineage.
 
@@ -190,13 +211,15 @@ This link must survive external system replacement. ViewPlan order IDs, Sellar I
 
 ### Container
 
-A `Container` is an individually tracked reusable physical asset. It is relevant to returnable logistics, but it is **not** the mechanism by which product traceability is guaranteed.
+A `Container` is an optional individually tracked reusable physical asset used for asset/return logistics.
 
-A one-way package can therefore have:
+Examples may include a brewery-owned numbered firkin or steel keg if the business wants to know where that specific asset is and recover it.
+
+Container identity is **not required for product traceability**. A returnable package can therefore be batch-traceable without the product model depending on a specific container serial number.
 
 ```text
-Container asset: none
-Batch traceability: required
+Packaged product traceability: always required
+Container asset tracking: only where operationally required
 ```
 
 ### Audit Event
@@ -257,6 +280,8 @@ Recall readiness is not a future optional reporting feature; it is a design cons
 ### Current phase
 
 ViewPlan remains the current authority for much of batch, material, packaging and order/dispatch history. Brewery Ops adapters must preserve enough identifiers and relationships to reconstruct lineage rather than importing only aggregate totals.
+
+ViewPlan's own decision to create `tblPackaging_Inventory` rows for a package does not define Brewery Ops product traceability or Container semantics. Those records are adapter evidence that must be translated into the canonical model.
 
 As Sprint 0 audits ViewPlan concepts, audits should look not only for the current value/state but also for provenance fields and history: IDs, dates/times, operators/users, material lot/batch numbers, transaction/history tables and relationships between them.
 
