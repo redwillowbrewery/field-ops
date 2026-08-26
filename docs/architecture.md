@@ -118,6 +118,43 @@ A sellable Product + Package combination.
 
 Every live Product Variant must resolve to exactly one canonical Package before Sprint 0 exits. Existing textual package fields may remain temporarily for compatibility during migration but are not the long-term business-rule authority.
 
+### Small-pack assembly and sales units (future)
+
+Small pack requires a richer model than treating a case as a single primitive Package.
+
+A packaged beer unit such as a 440ml can is assembled from packaging components, for example:
+
+```text
+beer from Batch/Gyle
++ can body
++ can end/lid
++ product label or printed-can identity
+= finished individual can
+```
+
+Those finished units can then be assembled into secondary sales/handling units, for example:
+
+```text
+1 x 440ml can
+6 x 440ml cans
+12 x 440ml case
+24 x 330ml case
+```
+
+The model must therefore eventually distinguish:
+
+- **Packaging Material / Component** — purchased inputs such as can bodies, ends/lids, labels, trays, cartons and wrap;
+- **Packaged Unit** — the traceable primary packaged product, e.g. one labelled 440ml can from a Batch/Gyle;
+- **Pack / Assembly Definition (BOM)** — how components or packaged units combine into another stock/sales unit;
+- **Sales Unit / SKU** — the unit a channel/customer can buy, which may be an individual can, multipack or case;
+- **Channel Listing** — external Shopify/Sellar/etc identity, price and availability mapped to the canonical Sales Unit rather than defining it.
+
+B2B and B2C can therefore sell different units of the same underlying packaged beer without creating different beer Products. For example, Brewery Ops may sell cases B2B while Shopify B2C sells individual cans, six-packs and cases.
+
+Batch provenance must survive assembly. If cans from Batch X are assembled into cases, every resulting sales unit must remain traceable back to Batch X and ultimately to the raw-material lots used in that batch. Where an assembly combines multiple source lots/batches, the resulting stock must preserve all relevant provenance rather than collapsing it into an untraceable aggregate.
+
+This is a future production/inventory capability and is **not** required to expand Sprint 0. Sprint 0 should avoid modelling `12 x 440ml cans` in a way that prevents it later being represented as an assembly/sales unit built from traceable individual packaged cans and packaging components.
+
 ### Batch / Gyle
 A production instance of a Product.
 
@@ -209,6 +246,17 @@ Packaging requirement
  -> recovery / cleaning / shortage / replacement requirement
 ```
 
+For small pack the future planning chain extends through the assembly BOM, for example:
+
+```text
+12 x 440ml case demand
+ -> 12 finished 440ml cans
+ -> 12 can bodies + 12 ends + 12 labels/printed cans
+ -> case/tray/carton/wrap requirements
+ -> packaging-material stock check
+ -> purchase requirements
+```
+
 These future modules are not part of Sprint 0; the model merely avoids preventing them.
 
 ## 7. Traceability direction
@@ -224,6 +272,8 @@ raw material lot(s)
  -> Customer
 ```
 
+Small-pack assembly must preserve that same provenance through individual cans, multipacks/cases and channel sales units.
+
 See `docs/traceability.md` for the canonical audit/recall requirements.
 
 ## 8. Sprint 0 package exit criteria
@@ -236,7 +286,8 @@ Sprint 0 package work is complete when:
 4. account `one_way_only` behaviour uses canonical `Package.lifecycle`;
 5. Quick Email and Availability consume the same package semantics;
 6. regression checks prove branded/Firkin cask is not one-way, E-Cask/E-Keg are one-way, cans remain eligible, and normal accounts retain permitted formats;
-7. no current sales UI rule depends on Sellar container naming or ViewPlan `has_inventory` to determine lifecycle.
+7. no current sales UI rule depends on Sellar container naming or ViewPlan `has_inventory` to determine lifecycle;
+8. temporary case/package representation does not preclude later decomposition into primary packaged units, packaging-component BOMs and channel-specific sales units.
 
 ## 9. Development guardrails
 
@@ -250,5 +301,6 @@ Before adding/changing an operational concept ask:
 6. Are package lifecycle and procurement being treated as separate dimensions?
 7. Is the role seeing only what helps complete the business outcome?
 8. Can the workflow be completed without unnecessary screen hopping?
+9. Is a sales unit actually an assembly of lower-level packaged units/components that should remain representable separately?
 
 Avoid page-specific source-system logic, fuzzy commercial mappings, package-name lifecycle tests, duplicated business rules and loss of useful provenance.
