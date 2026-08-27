@@ -142,7 +142,6 @@ foreach ($row in $rows) {
     if ($pkg.Count -ne 1) { throw "Canonical Package '$($row.name)' did not resolve uniquely after upsert." }
     $packageId = [string]$pkg[0].id
 
-    # ilike handles legacy casing differences such as 'pin' vs canonical ViewPlan 'Pin'.
     Invoke-SupaPatch "product_variants?package_type=ilike.$pkgName" @{ package_id = $packageId }
     $resolved++
 }
@@ -155,11 +154,18 @@ if ($unmapped.Count -gt 0) {
     throw "Package sync incomplete: $($unmapped.Count) active package type(s) need explicit canonical semantics. No name-based fallback was applied."
 }
 
-$missing = @(Invoke-SupaGet "product_variants_without_package?select=id%2Cpackage_type")
+$missing = @(Invoke-SupaGet "product_variants_without_package?select=id%2Cproduct_id%2Cpackage_type%2Cbroad_format%2Callow_sale")
 Write-Host "Live variants without canonical Package: $($missing.Count)"
 if ($missing.Count -gt 0) {
-    $sample = @($missing | Select-Object -First 20 | ForEach-Object { $_.package_type }) -join ', '
-    throw "Package sync incomplete: $($missing.Count) live Product Variant(s) have no Package. Sample: $sample"
+    Write-Host "Unresolved live variants:"
+    foreach ($variant in $missing) {
+        $product = @(Invoke-SupaGet "products?id=eq.$($variant.product_id)&select=id%2Cname%2Csource_system%2Csource_reference")
+        $productName = if ($product.Count -eq 1) { [string]$product[0].name } else { '<product not resolved>' }
+        $sourceRef = if ($product.Count -eq 1) { [string]$product[0].source_reference } else { '' }
+        $packageText = if ($null -eq $variant.package_type -or [string]::IsNullOrWhiteSpace([string]$variant.package_type)) { '<blank>' } else { [string]$variant.package_type }
+        Write-Host "  variant=$($variant.id) | product=$productName | product_source=$sourceRef | package_type=$packageText | broad_format=$($variant.broad_format)"
+    }
+    throw "Package sync incomplete: $($missing.Count) live Product Variant(s) have no Package. Inspect the variant details above; blank package types are not guessed."
 }
 
 Write-Host "Canonical package sync complete."
