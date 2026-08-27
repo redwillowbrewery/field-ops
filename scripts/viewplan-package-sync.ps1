@@ -37,24 +37,22 @@ function DbValue($rs,[string]$name) {
     $value
 }
 
-# Brewery Ops owns these semantics. ViewPlan remains source authority for the package definition/name/capacity.
-# Keep this mapping explicit: do not replace it with fuzzy lifecycle inference from Sellar or has_inventory.
 function Canonical-Semantics([string]$name) {
     switch -Regex ($name) {
-        '^Firkin$'            { return @{ broad_format='cask'; package_system='Firkin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
-        '^Pin$'               { return @{ broad_format='cask'; package_system='Pin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Firkin$'               { return @{ broad_format='cask'; package_system='Firkin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Pin$'                  { return @{ broad_format='cask'; package_system='Pin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
         '^Pin \(Flat Bottom\)$' { return @{ broad_format='cask'; package_system='Pin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
-        '^E-Cask$'            { return @{ broad_format='cask'; package_system='E-Cask'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
-        '^30 Litre Steel$'    { return @{ broad_format='keg'; package_system='Steel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
-        '^50 Litre Keg$'      { return @{ broad_format='keg'; package_system='Steel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
-        '^50L E-Keg$'         { return @{ broad_format='keg'; package_system='E-Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
-        '^E-Keg$'             { return @{ broad_format='keg'; package_system='E-Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
-        '^Key Keg$'           { return @{ broad_format='keg'; package_system='Key Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
-        '^Kegstar'            { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
-        '^Poly Keg'           { return @{ broad_format='keg'; package_system='Poly Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
-        'Can'                 { return @{ broad_format='can'; package_system='Can'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
-        'Bottle'              { return @{ broad_format='bottle'; package_system='Bottle'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
-        default               { return $null }
+        '^E-Cask$'               { return @{ broad_format='cask'; package_system='E-Cask'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^30 Litre Steel$'       { return @{ broad_format='keg'; package_system='Steel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^50 Litre Keg$'         { return @{ broad_format='keg'; package_system='Steel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^50L E-Keg$'            { return @{ broad_format='keg'; package_system='E-Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^E-Keg$'                { return @{ broad_format='keg'; package_system='E-Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^Key Keg$'              { return @{ broad_format='keg'; package_system='Key Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^Kegstar'               { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
+        '^Poly Keg'              { return @{ broad_format='keg'; package_system='Poly Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        'Can'                    { return @{ broad_format='can'; package_system='Can'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
+        'Bottle'                 { return @{ broad_format='bottle'; package_system='Bottle'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
+        default                  { return $null }
     }
 }
 
@@ -67,14 +65,17 @@ try { $access = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Appli
 catch { throw "Could not attach to ViewPlan. Open/log into ViewPlan and run from 32-bit PowerShell." }
 $db = $access.CurrentDb()
 
-# Read only package types actually used by saleable product variants. Capacity comes from the ViewPlan package master.
+# Access requires explicit nesting when mixing INNER and LEFT JOINs.
 $sql = @"
 SELECT DISTINCT
     bp.packaging_type,
     ptl.packaging_size_litres
-FROM tblBrew_Type AS bt
-INNER JOIN tblBrew_Type_Packaging AS bp ON bt.brew_type_id = bp.brew_type_id
-LEFT JOIN tblPackaging_Type_List AS ptl ON bp.packaging_type = ptl.packaging_type
+FROM
+    (tblBrew_Type AS bt
+    INNER JOIN tblBrew_Type_Packaging AS bp
+        ON bt.brew_type_id = bp.brew_type_id)
+    LEFT JOIN tblPackaging_Type_List AS ptl
+        ON bp.packaging_type = ptl.packaging_type
 WHERE bt.allow_sale = True
   AND bp.allow_sale = True
 ORDER BY bp.packaging_type
@@ -122,7 +123,6 @@ foreach ($row in $rows) {
     if ($pkg.Count -ne 1) { throw "Canonical Package '$($row.name)' did not resolve uniquely after upsert." }
     $packageId = [string]$pkg[0].id
 
-    # Existing ViewPlan variant identity is brew_type_id|packaging_type, but all variants with this package type share semantics.
     Invoke-SupaPatch "product_variants?package_type=eq.$pkgName" @{ package_id = $packageId }
     $resolved++
 }
