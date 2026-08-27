@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import {BottomNav} from "@/components/bottom-nav";
+import {SmartBackLink} from "@/components/smart-back-link";
 import {createSupabaseServerClient} from "@/lib/supabase";
 import {getAvailableSellarProducts,type SellarProduct} from "@/lib/sellar";
 import {packageAllowedForAccount,packageSalesLabel,type AccountContainerPreference,type CanonicalPackage} from "@/lib/package-eligibility";
@@ -102,7 +103,7 @@ export default async function AvailabilityPage({params,searchParams}:{params:Pro
   <main className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div>
-     <Link href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</Link>
+     <SmartBackLink href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</SmartBackLink>
      <div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">Current availability</h1>{preference==="one_way_only"?<span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20">ONE-WAY ONLY</span>:null}</div>
      <p className="mt-2 text-sm text-slate-500">ViewPlan catalogue/package rules · Sellar stock · exact mapped variants only{lastSync?` · synced ${dateTime(lastSync)}`:""} · {preferenceLabel} · {[account.town,account.postcode].filter(Boolean).join(" · ")}</p>
     </div>
