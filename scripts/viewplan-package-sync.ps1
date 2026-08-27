@@ -66,10 +66,11 @@ catch { throw "Could not attach to ViewPlan. Open/log into ViewPlan and run from
 $db = $access.CurrentDb()
 
 # Access requires explicit nesting when mixing INNER and LEFT JOINs.
+# tblPackaging_Type_List uses litre_capacity as confirmed by the Sprint 0 audit.
 $sql = @"
 SELECT DISTINCT
     bp.packaging_type,
-    ptl.packaging_size_litres
+    ptl.litre_capacity
 FROM
     (tblBrew_Type AS bt
     INNER JOIN tblBrew_Type_Packaging AS bp
@@ -86,7 +87,7 @@ $rows = New-Object System.Collections.Generic.List[object]
 while (-not $rs.EOF) {
     $rows.Add([PSCustomObject]@{
         name = [string](DbValue $rs 'packaging_type')
-        capacity = DbValue $rs 'packaging_size_litres'
+        capacity = DbValue $rs 'litre_capacity'
     })
     $rs.MoveNext()
 }
