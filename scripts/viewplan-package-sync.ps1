@@ -37,21 +37,46 @@ function DbValue($rs,[string]$name) {
     $value
 }
 
+# Explicit Brewery Ops semantics for ViewPlan package identities.
+# Do not replace these with generic name inference in downstream application code.
 function Canonical-Semantics([string]$name) {
     switch -Regex ($name) {
         '^Firkin$'               { return @{ broad_format='cask'; package_system='Firkin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Backfill Firkin$'      { return @{ broad_format='cask'; package_system='Firkin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Wooden Firkin$'        { return @{ broad_format='cask'; package_system='Wooden Firkin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
         '^Pin$'                  { return @{ broad_format='cask'; package_system='Pin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
         '^Pin \(Flat Bottom\)$' { return @{ broad_format='cask'; package_system='Pin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Backfill Pin$'         { return @{ broad_format='cask'; package_system='Pin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Kilderkin$'            { return @{ broad_format='cask'; package_system='Kilderkin'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^Barrel$'               { return @{ broad_format='cask'; package_system='Barrel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
+        '^36G Cask$'             { return @{ broad_format='cask'; package_system='36G Cask'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
         '^E-Cask$'               { return @{ broad_format='cask'; package_system='E-Cask'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^10L Poly pin$'         { return @{ broad_format='cask'; package_system='Polypin'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^20L polypin$'          { return @{ broad_format='cask'; package_system='Polypin'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+
         '^30 Litre Steel$'       { return @{ broad_format='keg'; package_system='Steel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
         '^50 Litre Keg$'         { return @{ broad_format='keg'; package_system='Steel'; lifecycle='brewery_returnable'; procurement_mode='reusable_asset'; draught=$true } }
         '^50L E-Keg$'            { return @{ broad_format='keg'; package_system='E-Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
         '^E-Keg$'                { return @{ broad_format='keg'; package_system='E-Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^20L Key Keg$'          { return @{ broad_format='keg'; package_system='Key Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
         '^Key Keg$'              { return @{ broad_format='keg'; package_system='Key Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
-        '^Kegstar'               { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
+        '^Key Keg Perception$'   { return @{ broad_format='keg'; package_system='Key Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^20L Poly Keg$'         { return @{ broad_format='keg'; package_system='Poly Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
         '^Poly Keg'              { return @{ broad_format='keg'; package_system='Poly Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^20L KegStar$'          { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
+        '^30L Kegstar$'          { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
+        '^50L Kegstar$'          { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
+        '^Kegstar'               { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
+        '^5L Mini Keg$'          { return @{ broad_format='keg'; package_system='Mini Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^Mini Keg$'             { return @{ broad_format='keg'; package_system='Mini Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+
+        '^Case \(12x330ml\)$'   { return @{ broad_format='bottle'; package_system='Case'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
+        '^Case \(12x500ml\)$'   { return @{ broad_format='bottle'; package_system='Case'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
+        '^Case \(6x750ml\)$'    { return @{ broad_format='bottle'; package_system='Case'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
         'Can'                    { return @{ broad_format='can'; package_system='Can'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
         'Bottle'                 { return @{ broad_format='bottle'; package_system='Bottle'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
+
+        # Robinsons Tanker is intentionally not classified until its ownership/lifecycle is confirmed.
         default                  { return $null }
     }
 }
@@ -65,8 +90,6 @@ try { $access = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Appli
 catch { throw "Could not attach to ViewPlan. Open/log into ViewPlan and run from 32-bit PowerShell." }
 $db = $access.CurrentDb()
 
-# Access requires explicit nesting when mixing INNER and LEFT JOINs.
-# tblPackaging_Type_List uses litre_capacity as confirmed by the Sprint 0 audit.
 $sql = @"
 SELECT DISTINCT
     bp.packaging_type,
