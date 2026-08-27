@@ -69,6 +69,7 @@ function Canonical-Semantics([string]$name) {
         '^Kegstar'               { return @{ broad_format='keg'; package_system='Kegstar'; lifecycle='third_party_returnable'; procurement_mode='externally_supplied'; draught=$true } }
         '^5L Mini Keg$'          { return @{ broad_format='keg'; package_system='Mini Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
         '^Mini Keg$'             { return @{ broad_format='keg'; package_system='Mini Keg'; lifecycle='one_way'; procurement_mode='consumable'; draught=$true } }
+        '^Robinsons Tanker$'     { return @{ broad_format='other'; package_system='Bulk Tanker'; lifecycle='one_way'; procurement_mode='none'; draught=$true } }
 
         '^Case \(12x330ml\)$'   { return @{ broad_format='bottle'; package_system='Case'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
         '^Case \(12x500ml\)$'   { return @{ broad_format='bottle'; package_system='Case'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
@@ -76,7 +77,6 @@ function Canonical-Semantics([string]$name) {
         'Can'                    { return @{ broad_format='can'; package_system='Can'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
         'Bottle'                 { return @{ broad_format='bottle'; package_system='Bottle'; lifecycle='non_container'; procurement_mode='consumable'; draught=$false } }
 
-        # Robinsons Tanker is intentionally not classified until its ownership/lifecycle is confirmed.
         default                  { return $null }
     }
 }
