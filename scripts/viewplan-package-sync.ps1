@@ -154,7 +154,10 @@ if ($unmapped.Count -gt 0) {
     throw "Package sync incomplete: $($unmapped.Count) active package type(s) need explicit canonical semantics. No name-based fallback was applied."
 }
 
-$missing = @(Invoke-SupaGet "product_variants_without_package?select=id%2Cproduct_id%2Cpackage_type%2Cbroad_format%2Callow_sale")
+# Query the canonical table directly rather than relying on the migration-time diagnostic view.
+$missingResult = Invoke-SupaGet "product_variants?package_id=is.null&allow_sale=eq.true&select=id%2Cproduct_id%2Cpackage_type%2Cbroad_format%2Callow_sale%2Csource_system%2Csource_reference"
+$missing = @()
+if ($null -ne $missingResult) { $missing = @($missingResult) }
 Write-Host "Live variants without canonical Package: $($missing.Count)"
 if ($missing.Count -gt 0) {
     Write-Host "Unresolved live variants:"
@@ -173,9 +176,11 @@ if ($missing.Count -gt 0) {
             }
         }
         $packageText = if ($null -eq $variant.package_type -or [string]::IsNullOrWhiteSpace([string]$variant.package_type)) { '<blank>' } else { [string]$variant.package_type }
-        Write-Host "  variant=$($variant.id) | product_id=$(if ([string]::IsNullOrWhiteSpace($productId)) {'<blank>'} else {$productId}) | product=$productName | product_source=$sourceRef | package_type=$packageText | broad_format=$($variant.broad_format) | allow_sale=$($variant.allow_sale)"
+        $variantId = if ($null -eq $variant.id) { '<blank>' } else { [string]$variant.id }
+        $variantSource = if ($null -eq $variant.source_reference) { '' } else { [string]$variant.source_reference }
+        Write-Host "  variant=$variantId | source=$variantSource | product_id=$(if ([string]::IsNullOrWhiteSpace($productId)) {'<blank>'} else {$productId}) | product=$productName | product_source=$sourceRef | package_type=$packageText | broad_format=$($variant.broad_format) | allow_sale=$($variant.allow_sale)"
     }
-    throw "Package sync incomplete: $($missing.Count) live Product Variant(s) have no Package. Inspect the variant details above; blank package/product links are not guessed."
+    throw "Package sync incomplete: $($missing.Count) live Product Variant(s) have no Package. Inspect the direct product_variants details above; blank package/product links are not guessed."
 }
 
 Write-Host "Canonical package sync complete."
