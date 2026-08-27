@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
+import { SmartBackLink } from "@/components/smart-back-link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getAvailableSellarProducts,type SellarProduct } from "@/lib/sellar";
 import {packageAllowedForAccount,packageSalesLabel,type AccountContainerPreference,type CanonicalPackage} from "@/lib/package-eligibility";
@@ -55,7 +56,7 @@ export default async function QuickPriceEmailPage({params}:{params:Promise<{id:s
  rows.sort((a,b)=>a.format.localeCompare(b.format)||a.name.localeCompare(b.name)||a.packageType.localeCompare(b.packageType));
 
  const preferenceLabel=preference==="one_way_only"?"One-way containers only":"Any packaging";
- return <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-10"><BottomNav active="Accounts"/><main className="mx-auto max-w-4xl px-4 py-5 sm:px-6"><Link href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</Link><div className="mt-4 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">Quick price email</h1>{preference==="one_way_only"?<span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20">ONE-WAY ONLY</span>:null}</div><p className="mt-2 text-sm text-slate-500">A simple current availability list with this customer’s ViewPlan pricing. {preferenceLabel}. <Link href={`/accounts/${id}/status`} className="font-semibold text-slate-700 hover:underline">Change preference</Link></p><div className="mt-6"><QuickPriceEmail accountId={id} accountName={account.name} recipient={recipient} rows={rows} sellarUrl={SELLAR_URL}/></div></main></div>;
+ return <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-10"><BottomNav active="Accounts"/><main className="mx-auto max-w-4xl px-4 py-5 sm:px-6"><SmartBackLink href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</SmartBackLink><div className="mt-4 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">Quick price email</h1>{preference==="one_way_only"?<span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20">ONE-WAY ONLY</span>:null}</div><p className="mt-2 text-sm text-slate-500">A simple current availability list with this customer’s ViewPlan pricing. {preferenceLabel}. <Link href={`/accounts/${id}/status`} className="font-semibold text-slate-700 hover:underline">Change preference</Link></p><div className="mt-6"><QuickPriceEmail accountId={id} accountName={account.name} recipient={recipient} rows={rows} sellarUrl={SELLAR_URL}/></div></main></div>;
 }
 
 function single<T>(v:T|T[]|null|undefined){return Array.isArray(v)?v[0]||null:v||null}
