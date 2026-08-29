@@ -8,13 +8,13 @@ const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 const token=process.env.SELLAR_API_TOKEN;
 const base=process.env.SELLAR_API_BASE_URL||"https://api.sellar.io";
-if(!url||!key||!token)fail("Missing Supabase service credentials or SELLAR_API_TOKEN.");
+if(!url||!key||!token)throw new Error("Missing Supabase service credentials or SELLAR_API_TOKEN.");
 
 const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const startedAt=new Date().toISOString();
 let runId=null;
 try{
- const {data:run,error:runError}=await db.from("connector_sync_runs").insert({source_system:"sellar",module:"availability",status:"running",started_at:startedAt}).select("id").single();
+ const {data:run,error:runError}=await db.from("connector_sync_runs").insert({source_system:"sellar",module:"availability",mode:"full",status:"running",started_at:startedAt}).select("id").single();
  if(runError)throw runError;runId=run.id;
  const products=await fetchProducts();
  if(!products.length)throw new Error("Sellar returned zero products; preserving the previous snapshot.");
@@ -38,9 +38,9 @@ try{
  await db.from("connector_sync_state").upsert({source_system:"sellar",module:"availability",last_success_at:completedAt,last_full_sync_at:completedAt,last_row_count:snapshots.length,last_error:null,updated_at:completedAt},{onConflict:"source_system,module"});
  await db.from("connector_sync_runs").update({status:"completed",rows_read:products.length,rows_written:snapshots.length,completed_at:completedAt,notes:`${unmapped} rows skipped because no eligible exact canonical mapping was found.`}).eq("id",runId);
  console.log(`Canonical availability updated: ${snapshots.length} variants; ${presentations.size} products; ${unmapped} skipped.`);
-}catch(error){const message=error instanceof Error?error.message:String(error);const failedAt=new Date().toISOString();try{await db.from("connector_sync_state").upsert({source_system:"sellar",module:"availability",last_row_count:0,last_error:message,updated_at:failedAt},{onConflict:"source_system,module"});if(runId)await db.from("connector_sync_runs").update({status:"failed",notes:message,completed_at:failedAt}).eq("id",runId);}catch{}fail(message);}
+}catch(error){const message=errorMessage(error);const failedAt=new Date().toISOString();try{await db.from("connector_sync_state").upsert({source_system:"sellar",module:"availability",last_row_count:0,last_error:message,updated_at:failedAt},{onConflict:"source_system,module"});if(runId)await db.from("connector_sync_runs").update({status:"failed",notes:message,completed_at:failedAt}).eq("id",runId);}catch{}console.error(message);process.exitCode=1;}
 
 async function fetchProducts(){const all=[];for(let offset=0;offset<100000;offset+=100){const request=new URL("/products",base);request.searchParams.set("limit","100");request.searchParams.set("offset",String(offset));const response=await fetch(request,{headers:{Authorization:`Bearer ${token}`,Accept:"application/json","User-Agent":"RedWillow-BreweryOps-Availability/1.0"}});if(!response.ok)throw new Error(`Sellar products failed: ${response.status}`);const body=await response.json();const rows=Array.isArray(body)?body:Array.isArray(body?.data)?body.data:Array.isArray(body?.data?.rows)?body.data.rows:Array.isArray(body?.rows)?body.rows:[];all.push(...rows);if(rows.length<100)break;}return all;}
 function text(v){const s=String(v||"").trim();return s||null}function numberOrNull(v){const n=Number(v);return Number.isFinite(n)?n:null}function booleanOrNull(v){return typeof v==="boolean"?v:null}
 function loadEnvFile(file){if(!fs.existsSync(file))return;for(const line of fs.readFileSync(file,"utf8").split(/\r?\n/)){const value=line.trim();if(!value||value.startsWith("#"))continue;const at=value.indexOf("=");if(at<1)continue;const name=value.slice(0,at).trim();let content=value.slice(at+1).trim();if((content.startsWith('"')&&content.endsWith('"'))||(content.startsWith("'")&&content.endsWith("'")))content=content.slice(1,-1);if(!(name in process.env))process.env[name]=content;}}
-function fail(message){console.error(message);process.exit(1)}
+function errorMessage(error){if(error instanceof Error)return error.message;if(error&&typeof error==="object"){const parts=[error.message,error.details,error.hint,error.code].filter(Boolean);if(parts.length)return parts.join(" | ");try{return JSON.stringify(error)}catch{}}return String(error)}
