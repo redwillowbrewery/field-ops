@@ -11,6 +11,7 @@
     "discounts:import": "node scripts/import-customer-discounts.mjs",
     "geocode:accounts": "node scripts/geocode-accounts.mjs",
     "sellar:test": "node --env-file=.env.local scripts/sellar-test.mjs",
+    "availability:sync": "node scripts/sync-sellar-availability.mjs",
     "sales:audit": "node scripts/audit-viewplan-sales-runner.mjs",
     "sales:import": "node scripts/import-viewplan-sales.mjs",
     "containers:import": "node scripts/import-viewplan-containers.mjs"

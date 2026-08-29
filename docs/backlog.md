@@ -44,6 +44,8 @@ Goal: make `one_way_only` a canonical package rule.
 
 ### P1.1 Availability snapshot/cache
 
+Implementation status: **implemented on `sprint-0/canonical-availability`; deployment and operational verification pending.**
+
 Goal: stop screens calling Sellar directly.
 
 - Create canonical availability snapshot table.
@@ -70,6 +72,8 @@ Initial policy to test:
 Make thresholds configuration/service policy, not page code.
 
 ### P1.3 Shared availability API/service
+
+Implementation status: **implemented for Account Availability, Quick Email and Price List on `sprint-0/canonical-availability`.**
 
 Goal: one definition of current availability.
 

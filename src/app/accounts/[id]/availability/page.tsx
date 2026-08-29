@@ -2,163 +2,21 @@ import Link from "next/link";
 import {notFound} from "next/navigation";
 import {BottomNav} from "@/components/bottom-nav";
 import {SmartBackLink} from "@/components/smart-back-link";
+import {getAccountAvailability} from "@/lib/availability";
+import {packageSalesLabel,type AccountContainerPreference} from "@/lib/package-eligibility";
 import {createSupabaseServerClient} from "@/lib/supabase";
-import {getAvailableSellarProducts,type SellarProduct} from "@/lib/sellar";
-import {packageAllowedForAccount,packageSalesLabel,type AccountContainerPreference,type CanonicalPackage} from "@/lib/package-eligibility";
 
-type Order={id:string;order_date:string};
-type Line={order_id:string;product_name:string|null;package_type:string|null;net_after_discount:number|null;quantity:number|null};
-type BroadFormat="cask"|"keg"|"can"|"other";
-type CanonicalVariant={id:string;broad_format:BroadFormat;package_type:string;volume_litres:number|null;pack_quantity:number|null;source_updated_at:string|null;product:{id:string;name:string}|{id:string;name:string}[]|null;package:CanonicalPackage|CanonicalPackage[]|null};
-type SellarMapping={external_id:string;product_variant_id:string};
-type AccountPricing={discount:number|null;parent_pricing_account_id:string|null};
-type EffectivePrice={list_price:number|string|null;customer_price:number|string|null;pricing_source:string|null;pricing_formula:string|null;effective_discount:number|string|null;price_list_code:string|null};
-type ProductCard={product:SellarProduct;variant:CanonicalVariant;pricing:EffectivePrice|null};
-
+type Price={list_price:number|string|null;customer_price:number|string|null};
 export default async function AvailabilityPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{q?:string;format?:string}>}){
- const {id}=await params;
- const {q="",format="all"}=await searchParams;
- const supabase=await createSupabaseServerClient();
-
- const {data:account}=await supabase.from("accounts").select("id,name,town,postcode,container_preference").eq("id",id).single();
- if(!account)notFound();
- const preference=(account.container_preference||"any") as AccountContainerPreference;
-
- const {data:orders,error:oErr}=await supabase.from("sales_orders").select("id,order_date").eq("account_id",id).order("order_date",{ascending:false});
- if(oErr)throw oErr;
- const orderRows=(orders||[]) as Order[];
- const orderDate=new Map(orderRows.map(o=>[o.id,o.order_date]));
- const lines:Line[]=[];
- for(let i=0;i<orderRows.length;i+=200){
-  const ids=orderRows.slice(i,i+200).map(o=>o.id);
-  if(!ids.length)continue;
-  const {data,error}=await supabase.from("sales_order_lines").select("order_id,product_name,package_type,net_after_discount,quantity").in("order_id",ids);
-  if(error)throw error;
-  lines.push(...((data||[]) as Line[]));
- }
-
- const canonicalVariants:CanonicalVariant[]=[];
- for(let from=0;;from+=1000){
-  const {data,error}=await supabase.from("product_variants").select("id,broad_format,package_type,volume_litres,pack_quantity,source_updated_at,product:products(id,name),package:packages(id,name,broad_format,package_system,lifecycle,procurement_mode)").eq("allow_sale",true).range(from,from+999);
-  if(error)throw error;
-  const page=(data||[]) as unknown as CanonicalVariant[];
-  canonicalVariants.push(...page);
-  if(page.length<1000)break;
- }
- const variantById=new Map(canonicalVariants.map(v=>[v.id,v]));
-
- let products:SellarProduct[]=[];
- let sellarError:string|null=null;
- try{products=await getAvailableSellarProducts()}catch(e){sellarError=e instanceof Error?e.message:"Sellar unavailable"}
-
- const sellarVariantMap=new Map<string,string>();
- const sellarIds=[...new Set(products.map(p=>String(p.id)))];
- for(let i=0;i<sellarIds.length;i+=200){
-  const batch=sellarIds.slice(i,i+200);
-  if(!batch.length)continue;
-  const {data,error}=await supabase.from("product_variant_external_ids").select("external_id,product_variant_id").eq("system","sellar").in("external_id",batch);
-  if(error)throw error;
-  for(const m of (data||[]) as SellarMapping[])sellarVariantMap.set(String(m.external_id),m.product_variant_id);
- }
-
- const {data:accountPricing,error:pricingErr}=await supabase.from("account_pricing").select("discount,parent_pricing_account_id").eq("account_id",id).maybeSingle();
- if(pricingErr)throw pricingErr;
- const pricingMeta=(accountPricing||null) as AccountPricing|null;
-
- // Sellar contributes stock only. Eligibility and format come from the mapped canonical ViewPlan variant/package.
- products=products.filter(p=>{
-  const mapped=sellarVariantMap.get(String(p.id));
-  if(!mapped)return false;
-  const variant=variantById.get(mapped);
-  return Boolean(variant&&packageAllowedForAccount(single(variant.package),preference));
- });
- const term=q.trim().toLowerCase();
- if(term)products=products.filter(p=>[p.name,p.Parent?.name,p.containerType].filter(Boolean).some(v=>String(v).toLowerCase().includes(term)));
- if(format!=="all")products=products.filter(p=>{
-  const mapped=sellarVariantMap.get(String(p.id));
-  const variant=mapped?variantById.get(mapped):null;
-  return canonicalFormat(variant)===format;
- });
- products.sort((a,b)=>displayBeerName(a).localeCompare(displayBeerName(b))||String(a.name||"").localeCompare(String(b.name||"")));
-
- const cards:ProductCard[]=[];
- for(const product of products){
-  const mappedVariantId=sellarVariantMap.get(String(product.id));
-  if(!mappedVariantId)continue;
-  const variant=variantById.get(mappedVariantId);
-  if(!variant)continue;
-  const {data,error}=await supabase.rpc("effective_customer_variant_price",{p_account_id:id,p_product_variant_id:variant.id});
-  if(error)throw error;
-  const pricing=((data||[])[0]||null) as EffectivePrice|null;
-  cards.push({product,variant,pricing});
- }
-
- const lastSync=canonicalVariants.map(v=>v.source_updated_at).filter(Boolean).sort().at(-1)||null;
- const discount=pricingMeta?.discount==null?null:Number(pricingMeta.discount)*100;
- const headlinePriceList=cards.map(c=>c.pricing?.price_list_code).find(Boolean)||null;
- const preferenceLabel=preference==="one_way_only"?"One-way packaging only":"Any packaging";
-
- return <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-10">
-  <BottomNav active="Accounts"/>
-  <main className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
-   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-    <div>
-     <SmartBackLink href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</SmartBackLink>
-     <div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">Current availability</h1>{preference==="one_way_only"?<span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20">ONE-WAY ONLY</span>:null}</div>
-     <p className="mt-2 text-sm text-slate-500">ViewPlan catalogue/package rules · Sellar stock · exact mapped variants only{lastSync?` · synced ${dateTime(lastSync)}`:""} · {preferenceLabel} · {[account.town,account.postcode].filter(Boolean).join(" · ")}</p>
-    </div>
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
-     <p className="font-semibold">{headlinePriceList||"Pricing not synced"}{pricingMeta?.parent_pricing_account_id?" · parent pricing available":""}</p>
-     <p className="mt-1 text-slate-500">{discount==null?"Run customer pricing sync":`${fmtPct(discount)}% account discount`}</p>
-    </div>
-   </div>
-
-   <div className="mt-5 flex flex-wrap gap-2">{["all","cask","keg","can"].map(f=><Link key={f} href={filterHref(id,q,f)} className={`rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-inset ${format===f?"bg-slate-950 text-white ring-slate-950":"bg-white text-slate-700 ring-slate-200"}`}>{f==="all"?"All":f[0].toUpperCase()+f.slice(1)}</Link>)}</div>
-   <form className="mt-3 flex gap-2"><input type="hidden" name="format" value={format}/><input name="q" defaultValue={q} placeholder="Search beer…" className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none focus:border-slate-950"/><button className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Search</button></form>
-
-   {!pricingMeta?<div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Customer-specific ViewPlan pricing has not been synced for this account</p><p className="mt-1">Run viewplan-customer-pricing-sync.ps1 on the BMS server.</p></div>:null}
-   {sellarError?<div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Live availability unavailable</p><p className="mt-1">{sellarError}. ViewPlan remains the product/pricing source of truth.</p></div>:null}
-
-   <section className="mt-5 space-y-3">{cards.map(({product:p,variant,pricing})=>{
-    const fmt=canonicalFormat(variant);
-    const customerMatch=findLastPurchase(p,fmt,lines,orderDate);
-    const list=pricing?.list_price==null?null:Number(pricing.list_price);
-    const customer=pricing?.customer_price==null?null:Number(pricing.customer_price);
-    const lastPaid=customerMatch&&Number(customerMatch.line.quantity)>0?Number(customerMatch.line.net_after_discount||0)/Number(customerMatch.line.quantity):null;
-    const change=customer!=null&&lastPaid!=null?customer-lastPaid:null;
-    const image=p.Parent?.imageUrl||p.Parent?.heroImageUrl||p.imageUrl||p.heroImageUrl;
-    const canonicalProduct=single(variant.product);
-    const pkg=single(variant.package);
-    const reason=pricingReason(pricing);
-    return <article key={p.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="flex gap-4">
-     {image?<img src={image} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover"/>:null}
-     <div className="min-w-0 flex-1">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-lg font-semibold">{displayBeerName(p)}</p><p className="mt-1 text-sm text-slate-500">{packageSalesLabel(pkg,variant.package_type)}{p.Parent?.abv!=null?` · ${p.Parent.abv}% ABV`:""}</p></div><div className="sm:text-right"><p className="text-lg font-semibold">{Number(p.availableStock??p.stock??0)} available</p><p className="text-xs text-slate-400">Sellar live stock</p></div></div>
-      {p.Parent?.description?<p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{p.Parent.description}</p>:null}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Price label="ViewPlan list" value={list==null?"—":money(list)}/><Price label="Customer price" value={customer==null?"—":money(customer)}/><Price label="Last paid" value={lastPaid==null?"—":money(lastPaid)}/><Price label="Change vs last" value={change==null?"—":changeLabel(change,lastPaid!)}/></div>
-      <p className="mt-2 text-xs text-slate-400">{reason}</p>
-      <p className="mt-1 text-xs text-slate-400">Sellar stock ↔ ViewPlan exact map: {canonicalProduct?.name||"Product"} · {pkg?.name||variant.package_type} · {pkg?.lifecycle||"package unresolved"}</p>
-     </div>
-    </div></article>
-   })}{!cards.length&&!sellarError?<div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No mapped available products match this customer’s packaging rules and filter.</div>:null}</section>
-  </main>
- </div>
+ const {id}=await params;const {q="",format="all"}=await searchParams;const db=await createSupabaseServerClient();
+ const {data:account}=await db.from("accounts").select("id,name,town,postcode,container_preference").eq("id",id).single();if(!account)notFound();
+ const preference=(account.container_preference||"any") as AccountContainerPreference;const result=await getAccountAvailability(db,preference);const term=q.trim().toLowerCase();
+ const items=result.items.filter(i=>(format==="all"||i.broadFormat===format)&&(!term||[i.productName,i.package.name].some(v=>v.toLowerCase().includes(term))));const cards=[];
+ for(const item of items){const {data,error}=await db.rpc("effective_customer_variant_price",{p_account_id:id,p_product_variant_id:item.variantId});if(error)throw error;cards.push({item,price:((data||[])[0]||null) as Price|null});}
+ return <div className="min-h-screen bg-slate-50 pb-24 text-slate-950 md:pb-10"><BottomNav active="Accounts"/><main className="mx-auto max-w-5xl px-4 py-5 sm:px-6"><SmartBackLink href={`/accounts/${id}`} className="text-sm font-medium text-slate-500">← {account.name}</SmartBackLink><div className="mt-3 flex flex-wrap items-center gap-2"><h1 className="text-3xl font-semibold tracking-tight">Current availability</h1>{preference==="one_way_only"?<span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">ONE-WAY ONLY</span>:null}</div><p className="mt-2 text-sm text-slate-500">Brewery Ops availability · exact canonical variants · {result.observedAt?`checked ${relativeTime(result.observedAt)}`:"not loaded"} · {[account.town,account.postcode].filter(Boolean).join(" · ")}</p>{result.lastRefreshError&&result.items.length?<div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Showing the last known availability; the latest refresh failed.</div>:null}<div className="mt-5 flex flex-wrap gap-2">{["all","cask","keg","can"].map(f=><Link key={f} href={href(id,q,f)} className={`rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-inset ${format===f?"bg-slate-950 text-white ring-slate-950":"bg-white ring-slate-200"}`}>{cap(f)}</Link>)}</div><form className="mt-3 flex gap-2"><input type="hidden" name="format" value={format}/><input name="q" defaultValue={q} placeholder="Search beer…" className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3"/><button className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">Search</button></form><section className="mt-5 space-y-3">{cards.map(({item,price})=><article key={item.variantId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="flex gap-4">{item.presentation?.image_url?<img src={item.presentation.image_url} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover"/>:null}<div className="min-w-0 flex-1"><div className="flex flex-col gap-2 sm:flex-row sm:justify-between"><div><h2 className="text-lg font-semibold">{item.productName}</h2><p className="text-sm text-slate-500">{packageSalesLabel(item.package,item.packageType)}{item.presentation?.abv!=null?` · ${item.presentation.abv}% ABV`:""}</p></div><p className="text-lg font-semibold">{item.availableQuantity} available</p></div>{item.presentation?.description?<p className="mt-3 line-clamp-2 text-sm text-slate-600">{item.presentation.description}</p>:null}<div className="mt-4 grid grid-cols-2 gap-3"><Metric label="List price" value={moneyOrDash(price?.list_price)}/><Metric label="Customer price" value={moneyOrDash(price?.customer_price)}/></div></div></div></article>)}{!cards.length?<div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">{result.observedAt?"No available products match this customer’s packaging rules and filter.":"Availability has not been loaded yet."}</div>:null}</section></main></div>;
 }
-
-function canonicalFormat(v:CanonicalVariant|null|undefined):BroadFormat{const pkg=single(v?.package);const fmt=pkg?.broad_format||v?.broad_format||"other";return fmt==="cask"||fmt==="keg"||fmt==="can"?fmt:"other"}
-function pricingReason(p:EffectivePrice|null){if(!p)return"No effective ViewPlan price resolved";const source=p.pricing_source||"price list";const formula=p.pricing_formula?` · ${p.pricing_formula}`:"";const discount=p.effective_discount==null?0:Number(p.effective_discount)*100;return `ViewPlan ${source}${formula}${discount?` · ${fmtPct(discount)}% line discount`:""}`}
-function findLastPurchase(p:SellarProduct,fmt:BroadFormat,lines:Line[],dates:Map<string,string>){const beers=sellarBeerCandidates(p);return lines.filter(l=>l.product_name&&beers.some(beer=>beerMatch(beer,normBeer(l.product_name||"")))&&broadViewPlanFormat(l.package_type||"")===fmt).map(line=>({line,date:dates.get(line.order_id)||""})).sort((a,b)=>b.date.localeCompare(a.date))[0]||null}
-function single<T>(v:T|T[]|null|undefined){return Array.isArray(v)?v[0]||null:v||null}
-function displayBeerName(p:SellarProduct){return String(p.Parent?.name||variantBaseName(p.name)||p.name||"").trim()}
-function variantBaseName(v?:string){return String(v||"").split("•")[0].trim().replace(/\s+-\s+(?:\d+\s*[lL]|\d+x\s*\d+\s*ml).*$/i,"").trim()}
-function sellarBeerCandidates(p:SellarProduct){const values=[p.Parent?.name,variantBaseName(p.name),p.name].filter(Boolean).map(v=>normBeer(String(v)));return [...new Set(values.filter(Boolean))]}
-function broadViewPlanFormat(v:string):BroadFormat{const c=v.toLowerCase();if(c.includes("can"))return"can";if(c.includes("cask")||c.includes("firkin")||c.includes("pin"))return"cask";if(c.includes("keg")||c.includes("litre steel")||c.includes("liter steel"))return"keg";return"other"}
-function normBeer(v:string){return v.toLowerCase().replace(/^f\d+\s*-\s*/i,"").replace(/\b\d+(?:\.\d+)?\s*%\s*(?:abv)?\b/g,"").replace(/\(\s*(?:gf|ve|vegan|gluten\s*free)\s*\)/g,"").replace(/\b20\d{2}\b/g,"").replace(/\b(?:\d+\s*x\s*\d+\s*ml|\d+\s*l(?:itre)?|e[- ]?cask|e[- ]?keg|firkin|pin|key\s*keg|sankey\s*keg|cans?)\b/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim()}
-function beerMatch(a:string,b:string){if(!a||!b)return false;if(a===b)return true;if(a.length>4&&b.length>4&&(a.includes(b)||b.includes(a)))return true;const aw=a.split(" "),bw=b.split(" ");const overlap=aw.filter(w=>w.length>2&&bw.includes(w));return overlap.length>=Math.min(2,Math.min(aw.length,bw.length))||aliases(a,b)}
-function aliases(a:string,b:string){return(a.includes("weightless")&&b.includes("weightless"))||(a.includes("nz pils")&&b.includes("nz pils"))||(a.includes("less is more mosaic")&&b.includes("less is more mosaic"))}
-function filterHref(id:string,q:string,format:string){const s=new URLSearchParams();if(q)s.set("q",q);s.set("format",format);return`/accounts/${id}/availability?${s.toString()}`}
-function money(v:number){return new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",minimumFractionDigits:2,maximumFractionDigits:2}).format(v)}
-function fmtPct(v:number){return Number.isInteger(v)?String(v):v.toFixed(2).replace(/0+$/g,"").replace(/\.$/,"")}
-function dateTime(v:string){return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(v))}
-function changeLabel(change:number,last:number){if(Math.abs(change)<0.005)return"Same price";const pct=last?Math.abs(change/last*100):0;return`${change>0?"+":"−"}${money(Math.abs(change))}${last?` (${pct.toFixed(1)}%)`:""}`}
-function Price({label,value}:{label:string;value:string}){return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>}
+function relativeTime(v:string){const m=Math.max(0,Math.round((Date.now()-new Date(v).getTime())/60000));return m<1?"just now":m<60?`${m}m ago`:`${Math.round(m/60)}h ago`}
+function href(id:string,q:string,f:string){const s=new URLSearchParams();if(q)s.set("q",q);s.set("format",f);return`/accounts/${id}/availability?${s}`}
+function cap(v:string){return v==="all"?"All":v[0].toUpperCase()+v.slice(1)}
+function moneyOrDash(v:number|string|null|undefined){const n=Number(v);return v==null||!Number.isFinite(n)?"—":new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"}).format(n)}
+function Metric({label,value}:{label:string;value:string}){return <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] uppercase text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>}
