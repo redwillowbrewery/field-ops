@@ -67,9 +67,9 @@ Outcomes:
 
 **Sprint exit:** we can replace Sellar package naming without changing customer-facing package behaviour.
 
-# Sprint 1 — Canonical availability
+# Sprint 0B — Canonical availability (current increment)
 
-**Goal:** Brewery Ops becomes the single application-facing source of availability even while Sellar remains the upstream observation source.
+**Goal:** Brewery Ops becomes the single application-facing source of availability even while Sellar remains the upstream observation source. This is the current Canonical Availability increment and completes the Sprint 0 foundation started by canonical packages.
 
 Primary backlog: P1.1–P1.3.
 
@@ -221,4 +221,4 @@ At the end of each sprint:
 
 ## Current recommendation
 
-Start with **Sprint 0** rather than opening several future feature branches. We have already proven substantial CRM, pricing, availability and returnables functionality; the highest-leverage next step is to remove the remaining package/integration ambiguity before building the availability abstraction on top of it.
+Complete **Sprint 0B Canonical Availability** before opening future feature branches. Canonical packages are implemented on the active Sprint 0 branch; the remaining exit work is to deploy/reconcile those packages, deploy and schedule the Sellar availability adapter, and prove stale-but-valid behaviour during an upstream failure.

@@ -33,7 +33,7 @@ export default async function ReturnsPage() {
 
   const summaryRows = (summaries || []) as ReturnSummary[];
   const accountIds = summaryRows.map((row) => row.account_id);
-  let accounts: Account[] = [];
+  const accounts: Account[] = [];
 
   for (let i = 0; i < accountIds.length; i += 250) {
     const batch = accountIds.slice(i, i + 250);
