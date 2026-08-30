@@ -84,79 +84,114 @@ Consumers:
 - Undecorated Price List.
 - Future Order Capture.
 
-## Priority 2 — role-centric UX foundation
+## Priority 2 — field sales workflow
 
-### P2.1 Role-centric navigation and information architecture
+### P2.1 Weekly Sales Focus
 
-Goal: each operational role sees the minimum information needed to make the next decision/action, while all roles use the same canonical data.
+Goal: make the app follow RedWillow's normal weekly selling rhythm instead of opening on the full account database.
 
-Initial role lenses:
-- Driver / dray.
-- Salesperson.
-- Bar manager.
-- Production / warehouse.
-- Management/admin where needed.
+Business rhythm:
+- Thursday: Sales Manager/delegate sets next week's commercial focus based on availability, specials and priorities.
+- Friday: broad customer communication currently goes via Mailchimp.
+- Sunday: broad follow-up/reminder.
+- Monday onward: geographically targeted call/email/WhatsApp contact once customers understand post-weekend requirements.
+- Later in the week: tactical sales/collection opportunities around routes/areas already being worked.
 
-Rules:
-- do not create duplicate role-specific Account/Product/Stock records;
-- role-specific screens are views/workflows over canonical concepts;
-- mobile-first for driver/sales/bar operational workflows;
-- hide advanced detail until requested;
-- one obvious primary action per screen where practical.
-
-### P2.2 Driver account/stop view
-
-Goal: give the driver only what they need at a stop.
-
-Primary information:
-- address/navigation;
-- number and type of expected empties/returns;
-- collection/delivery priority;
-- delivery/collection window;
-- call-ahead requirement and best contact;
-- access/parking/location notes;
-- relevant delivery/collection instructions.
-
-Primary actions:
-- Navigate.
-- Call.
-- Mark collected/delivered as appropriate.
-- Capture observation.
-
-Avoid exposing sales pricing/history/CRM detail unless explicitly useful.
-
-### P2.3 Canonical observations
-
-Goal: allow operational users to enrich shared account knowledge with very low friction.
-
-- Introduce/clarify `Observation` concept linked to Account and source workflow.
-- Support short free-text observation first; optional structured type later.
-- Capture user, role, timestamp and source context.
-- Show relevant observations in account timeline/knowledge.
-- Allow durable observations to be promoted into structured account attributes.
-
-Candidate durable attributes:
-- call ahead required + lead time;
-- delivery/collection window;
-- access/parking instructions;
-- preferred delivery point;
-- regular closed days;
-- other operational handling notes.
+Initial capability:
+- Sales Manager/delegate creates/edits a weekly plan.
+- Store week/date range, concise sales focus, selected products/themes/specials and areas/territories.
+- Build a bounded working contact list from explainable existing account signals.
+- Track progress through the initial push.
+- Keep prominent account search for known targets/exceptions.
+- Do not integrate Mailchimp yet; the weekly focus is canonical workflow input, not Mailchimp-owned data.
 
 Acceptance:
-- a driver can record a useful observation in a few seconds;
-- sales/ops can see that knowledge later without needing a separate driver database.
+- landing page does not show every account simply because it exists;
+- current weekly focus and selected areas are immediately understandable;
+- working list is bounded and each included account has an explainable reason;
+- progress through the initial sales push is visible;
+- Accounts remains the separate comprehensive directory.
 
-### P2.4 UI refactor pass
+### P2.2 Sales rhythm / managed account lens
 
-Goal: prevent feature growth from turning key screens into button collections.
+Goal: support both territory/day-to-day selling and managed/key-account selling without duplicating Account data.
 
-- Review Account detail action hierarchy.
-- Review bottom/top navigation by role/context.
-- Remove duplicates and rarely used top-level actions.
-- Use progressive disclosure/settings menus for lower-frequency operations.
-- Establish reusable patterns for primary/secondary actions, badges, freshness indicators and compact account knowledge.
-- Test on phone first for field roles.
+Rules:
+- `Account` remains canonical;
+- territory/day-to-day accounts primarily participate in the weekly geographic selling rhythm;
+- managed/key accounts have an account-focused rhythm based on relationship context, ongoing requirements, opportunities/issues and due actions;
+- do not overload relationship status to represent sales rhythm;
+- introduce only the smallest useful sales/service-model property if implementation needs one;
+- avoid elaborate permissions/taxonomy in Sprint 2.
+
+Acceptance:
+- managed/key accounts are not forced through the weekly territory list;
+- both rhythms share the same canonical Account, Contact, pricing, availability, Interaction/Task and later Order concepts.
+
+### P2.3 Account Selling Flow
+
+Goal: make Account the fast customer-selling workspace.
+
+Account should answer:
+1. who are they?
+2. what matters now?
+3. what can I sell them and at what price?
+4. what should I do next?
+
+- Review Account action hierarchy and remove the expanding button-bank feel.
+- Show useful relationship/territory/contact context first.
+- Surface due follow-up/appointment and recent useful activity.
+- Reuse canonical availability, effective pricing and package/container rules.
+- Make call/email/WhatsApp/visit/follow-up actions obvious where useful.
+- Use progressive disclosure for lower-frequency operations.
+- Keep phone layout primary for field sales.
+
+Acceptance:
+- common sales actions require minimal navigation/taps;
+- account package restriction and current availability/price remain coherent;
+- no page-specific pricing/package/availability business logic is added.
+
+### P2.4 Interaction + follow-up workflow
+
+Goal: make recording useful sales activity quick enough to happen consistently.
+
+- Capture call/email/WhatsApp/visit outcomes with minimal fields.
+- Support simple outcomes such as spoke/no answer/left message where useful.
+- Optional short note rather than mandatory CRM form filling.
+- Creating a follow-up/task is a natural continuation of the interaction.
+- Allow weekly working-list progress to reflect completed contact.
+- Preserve direction toward canonical `Interaction`; do not invent conflicting per-screen activity models.
+
+Acceptance:
+- salesperson can record contact outcome and optional follow-up in a few seconds on a phone;
+- timeline/activity remains coherent;
+- data is usable later by contact -> order intelligence.
+
+### P2.5 Tactical sales + field workflow
+
+Goal: once the initial push is complete, help sales exploit areas/routes already being worked.
+
+Initial questions:
+- who useful is near me / in the area?
+- which current/cooling/prospect accounts in the area have not been contacted or ordered recently?
+- which nearby accounts have meaningful returnable containers outstanding?
+
+Rules:
+- use existing Account/location/container data first;
+- keep recommendations explainable;
+- do not introduce route optimisation, canonical Delivery Run or vehicle weight/capacity as Sprint 2 dependencies;
+- Map remains the broader location exploration tool.
+
+Architectural principle:
+
+> **A delivery run remains a commercial and container-recovery opportunity until it closes.**
+
+Later Order Capture + Delivery Run + vehicle/load data can enrich tactical suggestions with actual route geometry and spare capacity.
+
+Acceptance:
+- salesperson can identify plausible extra sales or collection opportunities in an area already being worked;
+- no opaque next-best-account scoring is required;
+- core field workflow works cleanly at normal phone widths.
 
 ## Priority 3 — sales/orders connector and effectiveness reporting
 
@@ -201,27 +236,66 @@ Use association language, not unsupported causal attribution.
 - Introduce canonical allocation once Brewery Ops order state can reserve stock.
 - Availability becomes `physical - allocated - held` when authoritative inputs exist.
 
-## Priority 5 — returnable container operations
+## Priority 5 — returnable container and driver operations
 
 ### P5.1 Returns Near Me field trial
 
 - Trial with drays.
 - Validate location accuracy and useful package counts.
 - Capture operational feedback: detour threshold, ageing, collection priority.
-- Use trial observations to shape the Driver stop view rather than adding generic account-page controls.
+- Feed useful tactical sales/container signals into Sprint 2 without turning Sprint 2 into the driver workflow.
 
-### P5.2 Canonical returnable movement/history
+### P5.2 Driver account/stop view
+
+Goal: give the driver only what they need at a stop.
+
+Primary information:
+- address/navigation;
+- number and type of expected empties/returns;
+- collection/delivery priority;
+- delivery/collection window;
+- call-ahead requirement and best contact;
+- access/parking/location notes;
+- relevant delivery/collection instructions.
+
+Primary actions:
+- Navigate.
+- Call.
+- Mark collected/delivered as appropriate.
+- Capture observation.
+
+Avoid exposing sales pricing/history/CRM detail unless explicitly useful.
+
+### P5.3 Canonical observations
+
+Goal: allow operational users to enrich shared account knowledge with very low friction.
+
+- Introduce/clarify `Observation` concept linked to Account and source workflow.
+- Support short free-text observation first; optional structured type later.
+- Capture user, role, timestamp and source context.
+- Show relevant observations in account timeline/knowledge.
+- Allow durable observations to be promoted into structured account attributes.
+
+Candidate durable attributes:
+- call ahead required + lead time;
+- delivery/collection window;
+- access/parking instructions;
+- preferred delivery point;
+- regular closed days;
+- other operational handling notes.
+
+### P5.4 Canonical returnable movement/history
 
 - Represent dispatched / off-site / returned / lost / blocked movements.
 - Keep individual `Container` distinct from Package and Product Variant.
 
-### P5.3 Collection planning
+### P5.5 Collection planning
 
 - Suggested returns near current route/location.
 - Weight by container count, age and detour cost.
 - Include delivery/collection windows and operational constraints when known.
 
-## Priority 6 — CRM refinement
+## Priority 6 — CRM refinement / customer communications
 
 ### P6.1 Quick Email hardening
 
@@ -237,6 +311,7 @@ Use association language, not unsupported causal attribution.
 - Decorated brochure/price list.
 - Undecorated lightweight table.
 - Sellar/channel link remains secondary product-detail link until replaced.
+- Later allow canonical weekly commercial focus to feed outbound channels such as Mailchimp without making those channels the source of truth.
 
 ### P6.3 Account search and activity UX
 
