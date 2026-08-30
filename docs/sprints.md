@@ -92,28 +92,163 @@ Outcomes:
 
 **Sprint exit:** disconnecting the Sellar API changes freshness, not the structure of sales screens.
 
-# Sprint 2 — Sales workflow polish + UI simplification
+# Sprint 2 — Field sales workflow
 
-**Goal:** make the existing field-sales workflows demonstrably fast and uncluttered before adding more capabilities.
+**Primary user:** Field Sales.
 
-Primary backlog: Quick Email hardening, account/activity UX and planned UI refactor.
+**Goal:** opening Brewery Ops immediately tells a salesperson where their attention is needed, and the existing account → availability/price → contact → follow-up workflow is fast enough to use as the normal field-sales tool.
 
-Suggested branches:
+This is deliberately a usability and workflow sprint rather than a broad CRM expansion. It should simplify and connect capabilities that already exist before Order Capture or further operational roles are added.
 
-- `refactor/account-role-actions`
-- `refactor/mobile-sales-workflow`
-- `feature/quick-email-polish`
+Primary backlog: P2.1/P2.4 role-centric UX foundation, P6.1 Quick Email hardening and P6.3 account/activity UX.
+
+Core workflow:
+
+**find/choose customer → understand customer → see what they can buy and their price → contact/visit → record outcome → create follow-up → move to next customer**
+
+The three main sales surfaces have distinct jobs:
+
+- **Sales Home:** what should I do next?
+- **Accounts:** find/show me a customer.
+- **Map:** who is useful around here?
+
+## Sprint 2A — Sales Home + Account Focus
+
+**Goal:** fix the front door first. The landing page must stop behaving as an unfiltered list of every account and instead focus attention on actionable sales work.
+
+Suggested branch:
+
+- `refactor/sales-home-account-focus`
+
+Sales Home should prioritise existing deterministic operational signals rather than introduce a speculative scoring engine.
+
+Initial sections/capabilities:
+
+- **Today:** today's appointments plus tasks/follow-ups that are due or overdue.
+- **Opportunities:** useful prospects, lapsed/dormant accounts and cooling accounts requiring attention, using existing relationship/activity data where the recommendation is defensible.
+- **Nearby:** a concise entry into location-based selling, with the Map remaining the broader exploration tool.
+- **Search:** prominent account search for the common case where the salesperson already knows who they need.
+
+Do not show every account simply because it exists. The comprehensive account directory remains the responsibility of **Accounts**.
+
+Account detail should become the salesperson's customer workspace and answer, in order:
+
+1. **Who are they?** Name, relationship status, territory and useful primary contact context.
+2. **What matters now?** Due follow-up/appointment, recent activity, package restriction and compact useful customer knowledge.
+3. **What can I sell them?** Clear access to canonical availability and effective customer pricing.
+4. **What should I do?** Obvious high-frequency contact/visit/follow-up actions.
+
+Avoid an expanding top-level button bank. Keep high-frequency actions obvious and move lower-frequency operations behind progressive disclosure where practical.
+
+Acceptance:
+
+- opening Brewery Ops does not present an indiscriminate all-account list;
+- today's due work and appointments are immediately visible;
+- a known account can be found quickly;
+- opportunities shown on Sales Home have an explainable reason for appearing;
+- the complete account directory remains available separately;
+- account detail has a clear information/action hierarchy on a phone;
+- no new external-system terminology or page-specific ViewPlan/Sellar business logic is introduced;
+- existing canonical package, pricing and availability rules are reused.
+
+## Sprint 2B — Selling flow
+
+**Goal:** Availability, effective price and Quick Email feel like one customer-selling workflow rather than unrelated destinations.
+
+Suggested branch:
+
+- `refactor/account-selling-flow`
 
 Outcomes:
 
-- account page has a clear information hierarchy rather than an expanding button bank;
-- common sales actions require minimal taps;
-- secondary actions use progressive disclosure;
-- Quick Email is fast, canonical and account-aware;
-- mobile layout is treated as the primary operational layout;
-- internal ViewPlan/Sellar terminology is absent from normal sales UI.
+- from an Account, available Product Variants can be understood with package, available quantity and effective customer price;
+- availability freshness remains visible;
+- account package/container rules apply automatically;
+- selecting relevant products can flow naturally into Quick Email without restarting the task;
+- Quick Email remains canonical and account-aware;
+- decorated/undecorated price outputs reuse the same pricing and availability services;
+- internal Sellar/ViewPlan terminology is absent from normal sales UI.
 
-**Sprint exit:** sales team can field-test the core account → availability/price → contact/follow-up workflow without UI friction becoming the dominant feedback.
+Acceptance:
+
+- salesperson can go from Account to "what can I sell this customer and at what price?" with minimal navigation;
+- preparing a customer availability email does not require reselecting information already established in the workflow;
+- pricing/package/availability logic is not duplicated in page code.
+
+## Sprint 2C — Interaction + follow-up flow
+
+**Goal:** recording useful sales activity is quick enough that it happens consistently, preparing clean operational data for later contact → order intelligence.
+
+Suggested branch:
+
+- `refactor/sales-interaction-follow-up`
+
+Outcomes:
+
+- call and visit actions are prominent where useful;
+- simple outcomes such as spoke/no answer/left message can be captured with optional notes where appropriate;
+- visit logging is short and mobile-friendly;
+- creating the next task/follow-up is a natural continuation of logging the interaction;
+- avoid building the full Sprint 3 analytics model prematurely, but do not create new data structures that conflict with the planned canonical `Interaction` direction.
+
+Acceptance:
+
+- salesperson can record a call or visit outcome and optional follow-up in a few seconds on a phone;
+- existing timeline/activity information remains coherent;
+- the workflow does not require unnecessary CRM form completion.
+
+## Sprint 2D — Today, Map + mobile field pass
+
+**Goal:** connect the day's work and location context, then test the complete workflow on the device it is intended for.
+
+Suggested branch:
+
+- `refactor/mobile-sales-workflow`
+
+Outcomes:
+
+- appointments and due follow-ups on Sales Home link directly into the relevant Account workflow;
+- Map supports the practical question "who useful is near me?" using existing status/location information;
+- avoid premature route optimisation or complex next-best-account scoring;
+- navigation/back behaviour is consistent across Account child workflows;
+- complete mobile pass for overflow, dialogs, sticky actions, tap targets and unnecessary navigation;
+- desktop remains usable without driving the field-sales design.
+
+Acceptance:
+
+- a salesperson with spare time in an area can identify a plausible nearby account to visit;
+- today's appointment/task can be opened and completed without navigating through unrelated screens;
+- core workflow works cleanly at normal phone widths;
+- no primary action is inaccessible because of viewport/dialog layout.
+
+## Explicitly out of Sprint 2
+
+- Order Capture.
+- Sales effectiveness/contact → order reporting.
+- Driver workflow and returnable collection workflow.
+- Production/warehouse screens.
+- Route optimisation.
+- Mailchimp integration.
+- Elaborate role/permission infrastructure.
+- Major new CRM capabilities unrelated to the core field workflow.
+- Broad visual redesign for its own sake.
+
+## Sprint 2 field-test exit
+
+The sprint is complete when a salesperson can use Brewery Ops during a normal field-sales day to:
+
+1. open the app and understand what needs attention;
+2. find/select an account;
+3. understand the customer's current context;
+4. see what they can buy and their effective price;
+5. contact or visit the customer;
+6. record what happened;
+7. create the appropriate follow-up;
+8. move on to the next useful customer;
+
+without needing to understand ViewPlan/Sellar implementation details and without UI friction becoming the dominant field-test feedback.
+
+This workflow should also leave a clean insertion point for future Order Capture: the existing Account → Product Variant + availability + effective price flow can later gain **Add to order** rather than creating a separate stock/pricing workflow.
 
 # Sprint 3 — Customer contact → order intelligence
 
@@ -221,4 +356,4 @@ At the end of each sprint:
 
 ## Current recommendation
 
-Complete **Sprint 0B Canonical Availability** before opening future feature branches. Canonical packages are implemented on the active Sprint 0 branch; the remaining exit work is to deploy/reconcile those packages, deploy and schedule the Sellar availability adapter, and prove stale-but-valid behaviour during an upstream failure.
+Complete **Sprint 0B Canonical Availability** before opening Sprint 2 feature branches. Once Sprint 0B has passed deployment/reconciliation and stale-but-valid operational verification, start Sprint 2 with **2A Sales Home + Account Focus** and field-test each increment before adding further capability.
