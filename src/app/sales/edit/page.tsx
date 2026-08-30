@@ -10,7 +10,12 @@ export default async function EditWeeklySalesPlanPage({ searchParams }: { search
   const supabase = await createSupabaseServerClient();
   const [{ data: territories }, { data: products }, planResult] = await Promise.all([
     supabase.from("territories").select("id,name").order("name"),
-    supabase.from("products").select("id,name").eq("status", "active").order("name"),
+    supabase
+      .from("products")
+      .select("id,name,variants:product_variants!inner(id)")
+      .eq("status", "active")
+      .eq("variants.allow_sale", true)
+      .order("name"),
     id ? supabase.from("weekly_sales_plans").select("id,week_start,title,message,status,territories:weekly_sales_plan_territories(territory_id),products:weekly_sales_plan_products(product_id)").eq("id", id).single() : Promise.resolve({ data: null, error: null }),
   ]);
   if (planResult.error) throw new Error(planResult.error.message);
