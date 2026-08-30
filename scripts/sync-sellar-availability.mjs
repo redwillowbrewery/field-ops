@@ -1,46 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import {createClient} from "@supabase/supabase-js";
+import {errorMessage,syncSellarAvailability} from "../src/lib/sellar-availability-sync.mjs";
 
 loadEnvFile(path.resolve(".env.local"));
-const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
-const token=process.env.SELLAR_API_TOKEN;
-const base=process.env.SELLAR_API_BASE_URL||"https://api.sellar.io";
-if(!url||!key||!token)throw new Error("Missing Supabase service credentials or SELLAR_API_TOKEN.");
-
-const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-const startedAt=new Date().toISOString();
-let runId=null;
 try{
- const {data:run,error:runError}=await db.from("connector_sync_runs").insert({source_system:"sellar",module:"availability",mode:"full",status:"running",started_at:startedAt}).select("id").single();
- if(runError)throw runError;runId=run.id;
- const products=await fetchProducts();
- if(!products.length)throw new Error("Sellar returned zero products; preserving the previous snapshot.");
- const ids=products.map(p=>String(p.id));
- const mappings=[];
- for(let i=0;i<ids.length;i+=200){const {data,error}=await db.from("product_variant_external_ids").select("external_id,product_variant_id").eq("system","sellar").in("external_id",ids.slice(i,i+200));if(error)throw error;mappings.push(...(data||[]));}
- const byExternal=new Map(mappings.map(m=>[String(m.external_id),m.product_variant_id]));
- const variantIds=[...new Set(mappings.map(m=>m.product_variant_id))];
- const variantProduct=new Map();
- for(let i=0;i<variantIds.length;i+=200){const {data,error}=await db.from("product_variants").select("id,product_id,allow_sale,package_id").in("id",variantIds.slice(i,i+200));if(error)throw error;for(const v of data||[])if(v.allow_sale&&v.package_id)variantProduct.set(v.id,v.product_id);}
- const observedAt=new Date().toISOString();
- const snapshots=[];const presentations=new Map();let unmapped=0;
- for(const p of products){const variantId=byExternal.get(String(p.id));const productId=variantId&&variantProduct.get(variantId);if(!variantId||!productId){unmapped+=1;continue;}snapshots.push({product_variant_id:variantId,available_quantity:Math.max(0,Number(p.availableStock??p.stock??0)),source_system:"sellar",source_reference:String(p.id),source_observed_at:observedAt,refreshed_at:observedAt,updated_at:observedAt});const parent=p.Parent||{};presentations.set(productId,{product_id:productId,description:text(parent.description),image_url:text(parent.imageUrl||p.imageUrl),hero_image_url:text(parent.heroImageUrl||p.heroImageUrl),abv:numberOrNull(parent.abv),gluten_free:booleanOrNull(parent.glutenFree),vegan:booleanOrNull(parent.vegan),lactose_free:booleanOrNull(parent.lactoseFree),source_system:"sellar",source_observed_at:observedAt,updated_at:observedAt});}
- if(!snapshots.length)throw new Error("No Sellar rows resolved to saleable canonical variants with packages; preserving the previous snapshot.");
- const observedReferences=new Set(snapshots.map(row=>row.source_reference));
- const {data:previous,error:previousError}=await db.from("availability_snapshots").select("product_variant_id,source_reference").eq("source_system","sellar");if(previousError)throw previousError;
- for(const row of previous||[])if(!observedReferences.has(String(row.source_reference)))snapshots.push({product_variant_id:row.product_variant_id,available_quantity:0,source_system:"sellar",source_reference:String(row.source_reference),source_observed_at:observedAt,refreshed_at:observedAt,updated_at:observedAt});
- const {error:snapshotError}=await db.from("availability_snapshots").upsert(snapshots,{onConflict:"product_variant_id"});if(snapshotError)throw snapshotError;
- if(presentations.size){const {error:presentationError}=await db.from("product_presentations").upsert([...presentations.values()],{onConflict:"product_id"});if(presentationError)throw presentationError;}
- const completedAt=new Date().toISOString();
- await db.from("connector_sync_state").upsert({source_system:"sellar",module:"availability",last_success_at:completedAt,last_full_sync_at:completedAt,last_row_count:snapshots.length,last_error:null,updated_at:completedAt},{onConflict:"source_system,module"});
- await db.from("connector_sync_runs").update({status:"completed",rows_read:products.length,rows_written:snapshots.length,completed_at:completedAt,notes:`${unmapped} rows skipped because no eligible exact canonical mapping was found.`}).eq("id",runId);
- console.log(`Canonical availability updated: ${snapshots.length} variants; ${presentations.size} products; ${unmapped} skipped.`);
-}catch(error){const message=errorMessage(error);const failedAt=new Date().toISOString();try{await db.from("connector_sync_state").upsert({source_system:"sellar",module:"availability",last_row_count:0,last_error:message,updated_at:failedAt},{onConflict:"source_system,module"});if(runId)await db.from("connector_sync_runs").update({status:"failed",notes:message,completed_at:failedAt}).eq("id",runId);}catch{}console.error(message);process.exitCode=1;}
+ const result=await syncSellarAvailability({supabaseUrl:process.env.NEXT_PUBLIC_SUPABASE_URL,serviceRoleKey:process.env.SUPABASE_SERVICE_ROLE_KEY,sellarToken:process.env.SELLAR_API_TOKEN,sellarBaseUrl:process.env.SELLAR_API_BASE_URL});
+ console.log(`Canonical availability updated: ${result.variants} variants; ${result.products} products; ${result.skipped} skipped.`);
+}catch(error){console.error(errorMessage(error));process.exitCode=1;}
 
-async function fetchProducts(){const all=[];for(let offset=0;offset<100000;offset+=100){const request=new URL("/products",base);request.searchParams.set("limit","100");request.searchParams.set("offset",String(offset));const response=await fetch(request,{headers:{Authorization:`Bearer ${token}`,Accept:"application/json","User-Agent":"RedWillow-BreweryOps-Availability/1.0"}});if(!response.ok)throw new Error(`Sellar products failed: ${response.status}`);const body=await response.json();const rows=Array.isArray(body)?body:Array.isArray(body?.data)?body.data:Array.isArray(body?.data?.rows)?body.data.rows:Array.isArray(body?.rows)?body.rows:[];all.push(...rows);if(rows.length<100)break;}return all;}
-function text(v){const s=String(v||"").trim();return s||null}function numberOrNull(v){const n=Number(v);return Number.isFinite(n)?n:null}function booleanOrNull(v){return typeof v==="boolean"?v:null}
 function loadEnvFile(file){if(!fs.existsSync(file))return;for(const line of fs.readFileSync(file,"utf8").split(/\r?\n/)){const value=line.trim();if(!value||value.startsWith("#"))continue;const at=value.indexOf("=");if(at<1)continue;const name=value.slice(0,at).trim();let content=value.slice(at+1).trim();if((content.startsWith('"')&&content.endsWith('"'))||(content.startsWith("'")&&content.endsWith("'")))content=content.slice(1,-1);if(!(name in process.env))process.env[name]=content;}}
-function errorMessage(error){if(error instanceof Error)return error.message;if(error&&typeof error==="object"){const parts=[error.message,error.details,error.hint,error.code].filter(Boolean);if(parts.length)return parts.join(" | ");try{return JSON.stringify(error)}catch{}}return String(error)}
