@@ -92,90 +92,139 @@ Outcomes:
 
 **Sprint exit:** disconnecting the Sellar API changes freshness, not the structure of sales screens.
 
-# Sprint 2 — Field sales workflow
+# Sprint 2 — Field Sales Workflow
 
-**Primary user:** Field Sales.
+**Primary users:** Field Sales, with Sales Manager/delegate responsible for setting the weekly plan.
 
-**Goal:** opening Brewery Ops immediately tells a salesperson where their attention is needed, and the existing account → availability/price → contact → follow-up workflow is fast enough to use as the normal field-sales tool.
+**Goal:** Brewery Ops follows the way RedWillow actually sells: agree the week's commercial focus, target the areas being worked, complete the initial sales push, then use the rest of the week to follow up, fill delivery gaps and recover returnable containers without losing sight of managed/key accounts.
 
-This is deliberately a usability and workflow sprint rather than a broad CRM expansion. It should simplify and connect capabilities that already exist before Order Capture or further operational roles are added.
+This is deliberately a workflow sprint rather than a broad CRM expansion. It should simplify and connect capabilities that already exist before Order Capture or full logistics are added.
 
-Primary backlog: P2.1/P2.4 role-centric UX foundation, P6.1 Quick Email hardening and P6.3 account/activity UX.
+## Business rhythm
 
-Core workflow:
+The normal territory/day-to-day sales cycle is:
 
-**find/choose customer → understand customer → see what they can buy and their price → contact/visit → record outcome → create follow-up → move to next customer**
+**Thursday planning → Friday broad communication → Sunday reminder → Monday onward targeted contact → follow-up → tactical gap-filling**
 
-The three main sales surfaces have distinct jobs:
+Typical behaviour:
 
-- **Sales Home:** what should I do next?
+- on Thursday the Sales Manager or delegate decides what RedWillow wants to say/offer the following week based on availability, specials and commercial priorities;
+- the broad message currently goes through Mailchimp on Friday morning with a follow-up on Sunday;
+- once weekend trade has happened, most day-to-day accounts know what they have sold and what they need;
+- sales then works geographically useful call/contact lists using email, phone and occasionally WhatsApp;
+- once the initial push is substantially complete, attention shifts to delivery-route gaps, spare vehicle capacity and useful container collections in the same areas.
+
+Mailchimp, route optimisation and van-capacity calculation are not Sprint 2 dependencies. Sprint 2 establishes the canonical workflow that those later capabilities can enrich.
+
+## Two sales rhythms over one Account model
+
+Brewery Ops keeps one canonical `Account`. Sales rhythm is a workflow/lens over that Account, not a separate customer record.
+
+Two important rhythms are recognised:
+
+1. **Territory/day-to-day trade accounts** — driven primarily by the weekly plan, geography, contact list and tactical follow-up.
+2. **Managed/key accounts** — larger house/company accounts with a more account-focused rhythm based on relationship context, ongoing requirements, agreed pricing/products, issues, opportunities and due actions.
+
+Do not encode this distinction by duplicating Account data or by overloading relationship status. A lightweight sales/service-model property may be introduced when implementation requires it, but Sprint 2 should avoid elaborate permissions or taxonomy.
+
+## Shared surface responsibilities
+
+- **Sales Home:** what should I/we be selling and working this week?
 - **Accounts:** find/show me a customer.
+- **Account:** what matters about this customer and what should I do next?
+- **Availability:** what can I sell them?
+- **Interaction/Task:** what happened and what comes next?
 - **Map:** who is useful around here?
 
-## Sprint 2A — Sales Home + Account Focus
+## Sprint 2A — Weekly Sales Focus + Sales Home
 
-**Goal:** fix the front door first. The landing page must stop behaving as an unfiltered list of every account and instead focus attention on actionable sales work.
+**Goal:** replace the indiscriminate all-account landing page with a weekly sales workspace that reflects RedWillow's actual selling rhythm.
 
 Suggested branch:
 
-- `refactor/sales-home-account-focus`
+- `feature/weekly-sales-focus`
 
-Sales Home should prioritise existing deterministic operational signals rather than introduce a speculative scoring engine.
+### Scope
 
-Initial sections/capabilities:
+A Sales Manager or delegated salesperson can create/edit the current weekly sales plan.
 
-- **Today:** today's appointments plus tasks/follow-ups that are due or overdue.
-- **Opportunities:** useful prospects, lapsed/dormant accounts and cooling accounts requiring attention, using existing relationship/activity data where the recommendation is defensible.
-- **Nearby:** a concise entry into location-based selling, with the Map remaining the broader exploration tool.
-- **Search:** prominent account search for the common case where the salesperson already knows who they need.
+The first useful implementation should support:
 
-Do not show every account simply because it exists. The comprehensive account directory remains the responsibility of **Accounts**.
+- week identity/date range;
+- concise commercial focus/message for the week;
+- selected products/availability themes or specials to talk about, reusing canonical Product/Availability data where practical rather than duplicating product facts;
+- geographic areas/territories expected to be worked;
+- resulting working contact list for territory/day-to-day accounts;
+- contact-list progress through the initial sales push;
+- managed/key-account actions remaining visible without forcing those accounts through the territory list;
+- prominent account search for known targets/exceptions.
 
-Account detail should become the salesperson's customer workspace and answer, in order:
+Do not introduce AI scoring or opaque "next best account" recommendations. Initial list construction should use explainable existing signals such as selected area/territory, account relationship state, recent activity, due tasks and appointments.
 
-1. **Who are they?** Name, relationship status, territory and useful primary contact context.
-2. **What matters now?** Due follow-up/appointment, recent activity, package restriction and compact useful customer knowledge.
-3. **What can I sell them?** Clear access to canonical availability and effective customer pricing.
-4. **What should I do?** Obvious high-frequency contact/visit/follow-up actions.
+The comprehensive account directory remains the responsibility of **Accounts** and must not be duplicated on Sales Home.
 
-Avoid an expanding top-level button bank. Keep high-frequency actions obvious and move lower-frequency operations behind progressive disclosure where practical.
+### Suggested Sales Home structure
 
-Acceptance:
+At minimum the home should be able to answer:
 
-- opening Brewery Ops does not present an indiscriminate all-account list;
-- today's due work and appointments are immediately visible;
-- a known account can be found quickly;
-- opportunities shown on Sales Home have an explainable reason for appearing;
-- the complete account directory remains available separately;
-- account detail has a clear information/action hierarchy on a phone;
-- no new external-system terminology or page-specific ViewPlan/Sellar business logic is introduced;
-- existing canonical package, pricing and availability rules are reused.
+- **What are we talking about this week?**
+- **Which areas are we working?**
+- **Who is left to contact in the initial push?**
+- **Which managed/key accounts have actions due?**
+- **What do I personally need to do today?**
 
-## Sprint 2B — Selling flow
+Exact visual treatment is implementation detail; do not turn each answer into a separate heavyweight dashboard.
 
-**Goal:** Availability, effective price and Quick Email feel like one customer-selling workflow rather than unrelated destinations.
+### Acceptance
+
+- opening Brewery Ops no longer presents an indiscriminate list of every account;
+- Sales Manager/delegate can create or edit the week's sales focus without Mailchimp integration;
+- the week's selected areas and commercial focus are immediately understandable;
+- territory/day-to-day accounts can be presented as a bounded working list rather than the complete account database;
+- each account appearing in that working list has an explainable reason for appearing;
+- progress through the initial push is visible;
+- managed/key accounts are surfaced through due account actions rather than forced through the weekly territory list;
+- known accounts remain quickly searchable;
+- Accounts remains the separate comprehensive directory;
+- implementation works cleanly at normal phone widths;
+- no new ViewPlan/Sellar terminology or page-specific external-system business logic is introduced;
+- existing canonical Account, Contact, Product, Package, Pricing, Availability, Task and Appointment data is reused where applicable.
+
+## Sprint 2B — Account Selling Flow
+
+**Goal:** make the Account the fast customer-selling workspace for both territory and managed-account rhythms.
 
 Suggested branch:
 
 - `refactor/account-selling-flow`
 
+Account detail should answer, in order:
+
+1. **Who are they?** Name, relationship status, territory/service rhythm and useful primary contact context.
+2. **What matters now?** Due follow-up/appointment, recent activity, package restriction and compact customer knowledge.
+3. **What can I sell them?** Canonical availability plus effective customer price.
+4. **What should I do?** Obvious high-frequency call/email/WhatsApp/visit/follow-up actions.
+
 Outcomes:
 
-- from an Account, available Product Variants can be understood with package, available quantity and effective customer price;
+- Account page has a clear information hierarchy instead of an expanding button bank;
+- secondary actions use progressive disclosure;
+- available Product Variants can be understood with package, available quantity and effective customer price;
 - availability freshness remains visible;
 - account package/container rules apply automatically;
-- selecting relevant products can flow naturally into Quick Email without restarting the task;
+- selecting products can flow naturally into Quick Email without restarting the task;
 - Quick Email remains canonical and account-aware;
-- decorated/undecorated price outputs reuse the same pricing and availability services;
 - internal Sellar/ViewPlan terminology is absent from normal sales UI.
 
 Acceptance:
 
 - salesperson can go from Account to "what can I sell this customer and at what price?" with minimal navigation;
+- territory and managed accounts can use the same Account page without duplicated customer models;
 - preparing a customer availability email does not require reselecting information already established in the workflow;
-- pricing/package/availability logic is not duplicated in page code.
+- pricing/package/availability logic is not duplicated in page code;
+- primary actions remain usable on a phone.
 
-## Sprint 2C — Interaction + follow-up flow
+## Sprint 2C — Interaction + Follow-up
 
 **Goal:** recording useful sales activity is quick enough that it happens consistently, preparing clean operational data for later contact → order intelligence.
 
@@ -185,76 +234,90 @@ Suggested branch:
 
 Outcomes:
 
-- call and visit actions are prominent where useful;
+- call, email, WhatsApp and visit actions are easy to initiate/log where useful;
 - simple outcomes such as spoke/no answer/left message can be captured with optional notes where appropriate;
 - visit logging is short and mobile-friendly;
 - creating the next task/follow-up is a natural continuation of logging the interaction;
-- avoid building the full Sprint 3 analytics model prematurely, but do not create new data structures that conflict with the planned canonical `Interaction` direction.
+- working-list progress can reflect that contact has occurred;
+- avoid building Sprint 3 analytics prematurely, but do not create structures that conflict with the planned canonical `Interaction` direction.
 
 Acceptance:
 
-- salesperson can record a call or visit outcome and optional follow-up in a few seconds on a phone;
+- salesperson can record a contact/visit outcome and optional follow-up in a few seconds on a phone;
 - existing timeline/activity information remains coherent;
-- the workflow does not require unnecessary CRM form completion.
+- the workflow does not require unnecessary CRM form completion;
+- a completed interaction can advance the relevant weekly working-list state without duplicating customer data.
 
-## Sprint 2D — Today, Map + mobile field pass
+## Sprint 2D — Tactical Sales + Field Pass
 
-**Goal:** connect the day's work and location context, then test the complete workflow on the device it is intended for.
+**Goal:** once the initial weekly push is complete, help sales exploit the areas/routes already being worked and field-test the whole workflow on mobile.
 
 Suggested branch:
 
-- `refactor/mobile-sales-workflow`
+- `refactor/tactical-mobile-sales-workflow`
 
-Outcomes:
+Initial tactical behaviour should support the practical questions:
 
-- appointments and due follow-ups on Sales Home link directly into the relevant Account workflow;
-- Map supports the practical question "who useful is near me?" using existing status/location information;
-- avoid premature route optimisation or complex next-best-account scoring;
-- navigation/back behaviour is consistent across Account child workflows;
-- complete mobile pass for overflow, dialogs, sticky actions, tap targets and unnecessary navigation;
-- desktop remains usable without driving the field-sales design.
+- who useful is nearby or in an area already being visited?
+- which current/cooling/prospect accounts in that area have not ordered/contacted recently?
+- which accounts in the same area have meaningful returnable containers outstanding?
+
+Use existing map/location/account/container information where available. Do **not** make Sprint 2 depend on canonical Delivery Run, vehicle load, weight/capacity calculations or route optimisation.
+
+Architectural principle to preserve for later logistics work:
+
+> **A delivery run remains a commercial and container-recovery opportunity until it closes.**
+
+Future Order Capture + Delivery Runs + vehicle/load data can later enrich this tactical view with actual planned orders, route geometry and spare weight/capacity.
 
 Acceptance:
 
-- a salesperson with spare time in an area can identify a plausible nearby account to visit;
-- today's appointment/task can be opened and completed without navigating through unrelated screens;
-- core workflow works cleanly at normal phone widths;
-- no primary action is inaccessible because of viewport/dialog layout.
+- after the initial push, a salesperson can identify plausible additional sales or collection opportunities in an area being worked;
+- recommendations remain explainable from existing account/location/container data;
+- Map remains the broader location exploration tool rather than a duplicate CRM;
+- appointments/tasks/accounts link cleanly through the mobile workflow;
+- navigation/back behaviour, dialogs, sticky actions and tap targets work at normal phone widths;
+- no primary action is inaccessible because of viewport layout;
+- no premature route optimisation or vehicle-capacity model is introduced.
 
 ## Explicitly out of Sprint 2
 
 - Order Capture.
 - Sales effectiveness/contact → order reporting.
-- Driver workflow and returnable collection workflow.
-- Production/warehouse screens.
+- Full driver workflow.
+- Canonical Delivery Run/Service Pattern implementation.
+- Vehicle weight/capacity calculation.
 - Route optimisation.
-- Mailchimp integration.
+- Mailchimp integration or campaign sending.
+- Production/warehouse screens.
 - Elaborate role/permission infrastructure.
-- Major new CRM capabilities unrelated to the core field workflow.
+- AI/opaque next-best-account scoring.
+- Major new CRM capabilities unrelated to the core sales workflow.
 - Broad visual redesign for its own sake.
 
 ## Sprint 2 field-test exit
 
-The sprint is complete when a salesperson can use Brewery Ops during a normal field-sales day to:
+The sprint is complete when sales can use Brewery Ops through a normal RedWillow sales week to:
 
-1. open the app and understand what needs attention;
-2. find/select an account;
-3. understand the customer's current context;
-4. see what they can buy and their effective price;
-5. contact or visit the customer;
-6. record what happened;
-7. create the appropriate follow-up;
+1. create/understand the week's commercial focus and areas;
+2. work through a bounded territory contact list;
+3. keep managed/key-account actions visible in their account-focused rhythm;
+4. open an Account and understand the customer's current context;
+5. see what they can buy and their effective price;
+6. contact or visit the customer;
+7. record what happened and create the appropriate follow-up;
 8. move on to the next useful customer;
+9. after the initial push, identify sensible additional sales/container opportunities in areas already being worked;
 
 without needing to understand ViewPlan/Sellar implementation details and without UI friction becoming the dominant field-test feedback.
 
-This workflow should also leave a clean insertion point for future Order Capture: the existing Account → Product Variant + availability + effective price flow can later gain **Add to order** rather than creating a separate stock/pricing workflow.
+This workflow also leaves a clean insertion point for future Order Capture: the existing Account → Product Variant + availability + effective price flow can gain **Add to order** rather than creating a separate stock/pricing workflow.
 
 # Sprint 3 — Customer contact → order intelligence
 
 **Goal:** answer whether calls/visits/emails are associated with subsequent customer orders.
 
-Primary backlog: P2.1–P2.3.
+Primary backlog: sales/orders connector and interaction reporting.
 
 Suggested branches:
 
@@ -276,8 +339,6 @@ Outcomes:
 
 **Goal:** turn the successful Returns Near Me prototype into a role-specific dray workflow informed by field trial feedback.
 
-Primary backlog: P4 plus role-centric UI/Observation work.
-
 Suggested branches:
 
 - `feature/driver-stop-view`
@@ -297,8 +358,6 @@ Outcomes:
 # Sprint 5 — Lightweight order capture
 
 **Goal:** allow sales to turn current availability + effective customer price into a safe order intent.
-
-Primary backlog: P3.1 and prerequisites for P3.2.
 
 Suggested branches:
 
@@ -356,4 +415,4 @@ At the end of each sprint:
 
 ## Current recommendation
 
-Complete **Sprint 0B Canonical Availability** before opening Sprint 2 feature branches. Once Sprint 0B has passed deployment/reconciliation and stale-but-valid operational verification, start Sprint 2 with **2A Sales Home + Account Focus** and field-test each increment before adding further capability.
+Complete **Sprint 0B Canonical Availability** before opening Sprint 2 feature branches. Once Sprint 0B has passed deployment/reconciliation and stale-but-valid operational verification, start Sprint 2 with **2A Weekly Sales Focus + Sales Home**. Build the weekly workflow first, then refine Account selling, interaction/follow-up and tactical field use in that order.
