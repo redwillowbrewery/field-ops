@@ -36,6 +36,37 @@ Do not overload relationship status to encode this distinction.
 
 If implementation requires an explicit property, introduce the smallest useful sales/service-model field and document it clearly. Avoid a large taxonomy.
 
+### Current/sellable Product state
+
+Sprint 2A exposed a canonical Product gap: the weekly product picker must not offer every historical product ever created in ViewPlan.
+
+ViewPlan Product provides three relevant source signals:
+
+- `isAvailable` — indicates that the Product is current/active;
+- `isAvailableForSale` — indicates the ViewPlan sellable flag;
+- `BeX` — identifies Business Exchange / bought-in or swapped brewery products. RedWillow no longer operates this model.
+
+The ViewPlan Product connector must import these signals into canonical Product metadata rather than making the Sales Home understand ViewPlan fields.
+
+Canonical intent:
+
+- ViewPlan `isAvailable` -> canonical Product `active`;
+- ViewPlan `isAvailableForSale` -> canonical Product `sellable`;
+- ViewPlan `BeX` -> canonical metadata identifying a bought-in/business-exchange Product, using the smallest clear field/name consistent with the existing Product model.
+
+Do not require `sellable = true` for Sprint 2A's weekly product picker. Maintaining `isAvailableForSale` across the historical ViewPlan catalogue would create unnecessary manual data-cleaning work. RedWillow can efficiently maintain `isAvailable` in ViewPlan's tabular Product view.
+
+Therefore the initial **Current Sales Catalogue** rule is:
+
+- Product is `active = true`; and
+- Product is not BeX/business-exchange.
+
+Import and retain `sellable` even though it is not currently part of that filter. It is likely to become useful for Order Capture, customer price/availability outputs and other later sales workflows.
+
+Do not physically discard BeX Products if they are required to preserve historical sales/order relationships. They may remain in canonical history, but must be excluded from current catalogue, Weekly Sales Focus selection and other normal current-product selling workflows.
+
+The UI must consume a canonical current-product query/service. It must not contain ViewPlan-specific checks for `isAvailable`, `isAvailableForSale` or `BeX`.
+
 ### Weekly Sales Plan
 
 Introduce the smallest canonical representation needed for the weekly workflow.
@@ -107,6 +138,8 @@ Show the active/current week's:
 - selected areas/territories.
 
 Sales Manager/delegate can edit this from the same workflow without needing Mailchimp.
+
+The product selector must use the canonical **Current Sales Catalogue** rule above. Historical/inactive Products and BeX Products must not be offered for new weekly plans.
 
 ### 2. Initial push progress
 
@@ -188,6 +221,21 @@ Prefer existing canonical/services for:
 
 No UI component should call ViewPlan/Sellar directly to implement this workflow.
 
+## Sprint 2A prerequisite — canonical Product state
+
+Before treating the Weekly Sales Focus product picker as complete:
+
+1. inspect the existing canonical Product schema and ViewPlan Product connector;
+2. add the minimum canonical fields/migration required to retain ViewPlan `isAvailable`, `isAvailableForSale` and `BeX` semantics;
+3. update the connector to reconcile those values on every Product import/sync;
+4. expose/reuse a canonical current-product query/service implementing `active && !business_exchange`;
+5. change the Weekly Sales Focus product selector to use that canonical query/service;
+6. verify inactive historical Products and BeX Products no longer appear;
+7. preserve historical references to inactive/BeX Products where required;
+8. document any naming/model decision if the existing Product model suggests better canonical field names.
+
+This is a bounded Sprint 2A prerequisite discovered through field use, not a request to redesign Product management.
+
 ## Mobile behaviour
 
 Field Sales is phone-first.
@@ -204,6 +252,15 @@ At normal phone widths:
 Desktop should remain usable but should not dictate the field workflow.
 
 ## Suggested implementation sequence
+
+### Prerequisite — canonical current Product catalogue
+
+- import/reconcile ViewPlan Product active/sellable/BeX semantics;
+- expose the canonical current-product rule;
+- use it in the Weekly Sales Focus product picker;
+- do not introduce page-level ViewPlan field knowledge.
+
+Exit: the weekly product picker contains current RedWillow Products rather than the historical ViewPlan catalogue, while historical Product relationships remain intact.
 
 ### Branch 1 — canonical weekly plan
 
@@ -244,13 +301,25 @@ Exit: 2A acceptance test passes on a normal phone.
 
 If Branch 1 and 2 are small enough to remain coherent, combining them is acceptable. Do not create branches merely for ceremony.
 
+## Acceptance test — Product selection
+
+Given ViewPlan contains current RedWillow Products, historical inactive Products and legacy BeX Products:
+
+1. Product sync retains canonical active/sellable/business-exchange semantics;
+2. the Weekly Sales Focus product picker shows Products where canonical `active = true` and the Product is not business-exchange;
+3. inactive historical Products are not offered for a new weekly plan;
+4. BeX Products are not offered for a new weekly plan;
+5. `sellable` is retained canonically but is not required by this Sprint 2A picker rule;
+6. historical data can still resolve Products that are now inactive or BeX where required;
+7. the Weekly Sales UI contains no ViewPlan-specific field checks.
+
 ## Acceptance test — normal weekly setup
 
 Given a Sales Manager/delegate on Thursday:
 
 1. they create/select next week's plan;
 2. enter a concise commercial focus;
-3. select products/specials to talk about;
+3. select current products/specials to talk about;
 4. select the areas expected to be worked;
 5. save the plan;
 6. Sales Home shows that plan as the current sales context;
@@ -284,6 +353,8 @@ Sprint 2A is done when:
 
 - Sales Home no longer defaults to an indiscriminate all-account view;
 - weekly plan creation/editing works for Sales Manager/delegate;
+- the weekly product picker uses canonical current Product state and excludes inactive/BeX Products;
+- ViewPlan active/sellable/BeX Product semantics are retained by the canonical Product import;
 - territory working-list logic is explainable and bounded;
 - progress through the initial push is visible;
 - managed/key-account due actions remain visible in their own rhythm;
