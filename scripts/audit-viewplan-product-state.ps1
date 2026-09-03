@@ -43,6 +43,11 @@ Write-Host "tblBrew_Type fields:"
 $brewType = $db.TableDefs.Item("tblBrew_Type")
 $brewType.Fields | ForEach-Object { $_.Name } | Sort-Object | ForEach-Object { Write-Host "  $_" }
 
+Write-Host ""
+Write-Host "tblBrew_Product_Names_List fields:"
+$productNames = $db.TableDefs.Item("tblBrew_Product_Names_List")
+$productNames.Fields | ForEach-Object { $_.Name } | Sort-Object | ForEach-Object { Write-Host "  $_" }
+
 if ($ProductName.Count) {
     Write-Host ""
     Write-Host "Requested Product state:"
@@ -72,5 +77,34 @@ ORDER BY brew_type_id
         $stateRows | Format-Table -AutoSize
     } else {
         Write-Host "No exact Product-name matches found."
+    }
+
+    Write-Host ""
+    Write-Host "Matching Product Names administration rows:"
+    $requestedNames = @{}
+    foreach ($name in $ProductName) { $requestedNames[$name.Trim().ToLowerInvariant()] = $true }
+    $nameRows = New-Object System.Collections.Generic.List[object]
+    $nameRecordset = $db.OpenRecordset("SELECT * FROM tblBrew_Product_Names_List")
+    while (-not $nameRecordset.EOF) {
+        $matched = $false
+        foreach ($field in $nameRecordset.Fields) {
+            $value = $field.Value
+            if ($null -ne $value -and $requestedNames.ContainsKey(([string]$value).Trim().ToLowerInvariant())) {
+                $matched = $true
+                break
+            }
+        }
+        if ($matched) {
+            $values = [ordered]@{}
+            foreach ($field in $nameRecordset.Fields) { $values[$field.Name] = $field.Value }
+            $nameRows.Add(([PSCustomObject]$values)) | Out-Null
+        }
+        $nameRecordset.MoveNext()
+    }
+    $nameRecordset.Close()
+    if ($nameRows.Count) {
+        $nameRows | Format-List
+    } else {
+        Write-Host "No exact Product-name matches found in tblBrew_Product_Names_List."
     }
 }
