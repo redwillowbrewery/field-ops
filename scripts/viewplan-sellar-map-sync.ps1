@@ -107,6 +107,19 @@ while (-not $rs.EOF) {
 $rs.Close()
 
 Write-Host "ViewPlan rows with Sellar IDs: $($rows.Count)"
+
+$ambiguousVariants = @($rows | Group-Object { "$($_.brew_type_id)|$($_.packaging_type)" } | Where-Object {
+    @($_.Group.sellar_variant_id | Sort-Object -Unique).Count -gt 1
+})
+$ambiguousSellarIds = @($rows | Group-Object sellar_variant_id | Where-Object {
+    @($_.Group | ForEach-Object { "$($_.brew_type_id)|$($_.packaging_type)" } | Sort-Object -Unique).Count -gt 1
+})
+if ($ambiguousVariants.Count -or $ambiguousSellarIds.Count) {
+    $examples = @($ambiguousVariants | Select-Object -First 3 | ForEach-Object { "variant key '$($_.Name)'" })
+    $examples += @($ambiguousSellarIds | Select-Object -First 3 | ForEach-Object { "Sellar ID '$($_.Name)'" })
+    throw "ViewPlan Sellar mappings are ambiguous; no reconciliation was attempted. Examples: $($examples -join ', ')"
+}
+
 $linked = 0
 $relinked = 0
 $skippedNoCanonical = 0
@@ -119,9 +132,8 @@ foreach ($row in $rows) {
     $vpEncoded = UrlEncode $viewplanExternalId
     $variantId = Get-FirstField "product_variant_external_ids?system=eq.viewplan&external_id=eq.$vpEncoded&select=product_variant_id&limit=1" "product_variant_id"
 
-    # The canonical ViewPlan product sync only creates/maps variants for products and
-    # packages that are currently saleable in ViewPlan. If no canonical mapping exists,
-    # treat the import-map row as stale/non-saleable rather than creating a Sellar bridge.
+    # A missing canonical ViewPlan identity indicates a stale or invalid import-map row;
+    # do not create a Sellar bridge without an exact canonical Variant mapping.
     if (-not $variantId) {
         $skippedNoCanonical++
         continue
@@ -135,13 +147,14 @@ foreach ($row in $rows) {
     $sellarId = [string]$row.sellar_variant_id
     $sellarEncoded = UrlEncode $sellarId
     $existingVariantId = Get-FirstField "product_variant_external_ids?system=eq.sellar&external_id=eq.$sellarEncoded&select=product_variant_id&limit=1" "product_variant_id"
-    $wasDifferent = $existingVariantId -and $existingVariantId -ne $variantId
+    $existingSellarId = Get-FirstField "product_variant_external_ids?system=eq.sellar&product_variant_id=eq.$variantId&select=external_id&limit=1" "external_id"
+    $wasDifferent = ($existingVariantId -and $existingVariantId -ne $variantId) -or ($existingSellarId -and $existingSellarId -ne $sellarId)
 
-    Invoke-SupaPost "product_variant_external_ids?on_conflict=system%2Cexternal_id" @{
-        product_variant_id = $variantId
-        system = "sellar"
-        external_id = $sellarId
-    } "resolution=merge-duplicates,return=minimal" | Out-Null
+    Invoke-SupaPost "rpc/reconcile_product_variant_external_id" @{
+        p_product_variant_id = $variantId
+        p_system = "sellar"
+        p_external_id = $sellarId
+    } "return=minimal" | Out-Null
 
     if ($wasDifferent) { $relinked++ } else { $linked++ }
 

@@ -23,6 +23,7 @@
 # local integration captures
 /tmp/sellar/
 /tmp/viewplan-sales/
+/supabase/.temp/
 
 # misc
 .DS_Store
