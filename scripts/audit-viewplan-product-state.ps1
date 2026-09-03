@@ -18,11 +18,11 @@ foreach ($table in $db.TableDefs) {
     if ($table.Name.StartsWith("MSys")) { continue }
     foreach ($field in $table.Fields) {
         if ($field.Name -match "(?i)available|sale|bex|business|exchange") {
-            $matches.Add([PSCustomObject]@{
+            $matches.Add(([PSCustomObject]@{
                 table = $table.Name
                 field = $field.Name
                 type = $field.Type
-            })
+            })) | Out-Null
         }
     }
 }
@@ -38,4 +38,3 @@ Write-Host ""
 Write-Host "tblBrew_Type fields:"
 $brewType = $db.TableDefs.Item("tblBrew_Type")
 $brewType.Fields | ForEach-Object { $_.Name } | Sort-Object | ForEach-Object { Write-Host "  $_" }
-
