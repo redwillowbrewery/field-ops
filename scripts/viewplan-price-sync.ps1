@@ -63,6 +63,15 @@ function DbValueAny($recordset, [string[]]$names, $default = $null) {
     }
     return $default
 }
+function RequireDbValueAny($recordset, [string[]]$names, [string]$meaning) {
+    foreach ($name in $names) {
+        try {
+            $recordset.Fields.Item($name) | Out-Null
+            return DbValue $recordset $name
+        } catch {}
+    }
+    throw "ViewPlan Product source does not expose $meaning. Expected one of: $($names -join ', '). Run scripts/audit-viewplan-product-state.ps1."
+}
 function DbBool($value, [bool]$default = $false) {
     if ($null -eq $value -or $value -is [DBNull]) { return $default }
     if ($value -is [bool]) { return $value }
@@ -138,9 +147,9 @@ $productRs = $db.OpenRecordset($productSql)
 $productRows = New-Object System.Collections.Generic.List[object]
 $syncTime = [DateTime]::UtcNow.ToString("o")
 while (-not $productRs.EOF) {
-    $sourceAvailable = DbValueAny $productRs @("isAvailable", "is_available", "available", "allow_sale") $true
-    $sourceSellable = DbValueAny $productRs @("isAvailableForSale", "is_available_for_sale", "allow_sale") $true
-    $sourceBusinessExchange = DbValueAny $productRs @("BeX", "bex", "business_exchange") $false
+    $sourceAvailable = RequireDbValueAny $productRs @("isAvailable", "is_available", "available", "allow_sale") "current/active state"
+    $sourceSellable = RequireDbValueAny $productRs @("isAvailableForSale", "is_available_for_sale", "allow_sale") "sellable state"
+    $sourceBusinessExchange = RequireDbValueAny $productRs @("BeX", "bex", "business_exchange") "Business Exchange state"
     $productRows.Add([PSCustomObject][ordered]@{
         brew_type_id = [int](DbValue $productRs "brew_type_id")
         beer_name = [string](DbValue $productRs "brew_product_name")
