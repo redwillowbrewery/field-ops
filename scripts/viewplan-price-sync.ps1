@@ -57,6 +57,20 @@ function DbValue($recordset, [string]$name) {
     if ($null -eq $value -or $value -is [DBNull]) { return $null }
     return $value
 }
+function DbValueAny($recordset, [string[]]$names, $default = $null) {
+    foreach ($name in $names) {
+        try { return DbValue $recordset $name } catch {}
+    }
+    return $default
+}
+function DbBool($value, [bool]$default = $false) {
+    if ($null -eq $value -or $value -is [DBNull]) { return $default }
+    if ($value -is [bool]) { return $value }
+    $text = ([string]$value).Trim().ToLowerInvariant()
+    if ($text -in @("true", "yes", "y", "1", "-1")) { return $true }
+    if ($text -in @("false", "no", "n", "0", "")) { return $false }
+    return [bool]$value
+}
 function BroadFormat([string]$packageType) {
     $v = $packageType.ToLowerInvariant()
     if ($v -match "can") { return "can" }
@@ -114,6 +128,40 @@ if ($project -notmatch "mbms\.accde$|ViewPlan BMS\.accde$") {
 }
 $db = $access.CurrentDb()
 
+$productSql = @"
+SELECT bt.*
+FROM tblBrew_Type AS bt
+ORDER BY bt.brew_product_name
+"@
+
+$productRs = $db.OpenRecordset($productSql)
+$productRows = New-Object System.Collections.Generic.List[object]
+$syncTime = [DateTime]::UtcNow.ToString("o")
+while (-not $productRs.EOF) {
+    $sourceAvailable = DbValueAny $productRs @("isAvailable", "is_available", "available", "allow_sale") $true
+    $sourceSellable = DbValueAny $productRs @("isAvailableForSale", "is_available_for_sale", "allow_sale") $true
+    $sourceBusinessExchange = DbValueAny $productRs @("BeX", "bex", "business_exchange") $false
+    $productRows.Add([PSCustomObject][ordered]@{
+        brew_type_id = [int](DbValue $productRs "brew_type_id")
+        beer_name = [string](DbValue $productRs "brew_product_name")
+        abv = DbValue $productRs "brew_abv"
+        brew_lud = DbValueAny $productRs @("lud") $null
+        active = DbBool $sourceAvailable $true
+        sellable = DbBool $sourceSellable $true
+        business_exchange = DbBool $sourceBusinessExchange $false
+    })
+    $productRs.MoveNext()
+}
+$productRs.Close()
+if ($productRows.Count -eq 0) { throw "No ViewPlan Products were returned; refusing to reconcile an empty catalogue." }
+Write-Host "ViewPlan Products: $($productRows.Count)"
+$activeProductCount = @($productRows | Where-Object { $_.active -and -not $_.business_exchange }).Count
+$inactiveProductCount = @($productRows | Where-Object { -not $_.active }).Count
+$businessExchangeCount = @($productRows | Where-Object { $_.business_exchange }).Count
+Write-Host "Current RedWillow catalogue: $activeProductCount"
+Write-Host "Inactive historical Products: $inactiveProductCount"
+Write-Host "Business Exchange Products retained: $businessExchangeCount"
+
 $sql = @"
 SELECT
     bt.brew_type_id,
@@ -135,14 +183,11 @@ SELECT
 FROM tblBrew_Type AS bt
 INNER JOIN tblBrew_Type_Packaging AS bp
     ON bt.brew_type_id = bp.brew_type_id
-WHERE bt.allow_sale = True
-  AND bp.allow_sale = True
 ORDER BY bt.brew_product_name, bp.packaging_type
 "@
 
 $rs = $db.OpenRecordset($sql)
 $rows = New-Object System.Collections.Generic.List[object]
-$syncTime = [DateTime]::UtcNow.ToString("o")
 while (-not $rs.EOF) {
     $row = [ordered]@{
         brew_type_id = [int](DbValue $rs "brew_type_id")
@@ -160,24 +205,26 @@ while (-not $rs.EOF) {
     $rs.MoveNext()
 }
 $rs.Close()
-if ($rows.Count -eq 0) { throw "No saleable ViewPlan product/package rows were returned." }
-Write-Host "Saleable product/package rows: $($rows.Count)"
+if ($rows.Count -eq 0) { throw "No ViewPlan product/package rows were returned; refusing to reconcile an empty variant catalogue." }
+Write-Host "Product/package rows: $($rows.Count)"
 
 $productMap = @{}
-$distinctProducts = $rows | Group-Object brew_type_id
 $productIndex = 0
-foreach ($group in $distinctProducts) {
+foreach ($sourceProduct in $productRows) {
     $productIndex++
-    $sample = $group.Group[0]
-    $externalId = [string]$sample.brew_type_id
+    $externalId = [string]$sourceProduct.brew_type_id
     $productId = Get-ExistingProductMapping $externalId
-    $sourceUpdated = if ($sample.brew_lud) { ([DateTime]$sample.brew_lud).ToUniversalTime().ToString("o") } else { $syncTime }
+    $sourceUpdated = if ($sourceProduct.brew_lud) { ([DateTime]$sourceProduct.brew_lud).ToUniversalTime().ToString("o") } else { $syncTime }
+    $canonicalStatus = if ($sourceProduct.active) { "active" } else { "inactive" }
 
     if (-not $productId) {
         $created = @(Invoke-SupaPost "products" @{
-            name = $sample.beer_name
-            abv = $sample.abv
-            status = "active"
+            name = $sourceProduct.beer_name
+            abv = $sourceProduct.abv
+            status = $canonicalStatus
+            active = $sourceProduct.active
+            sellable = $sourceProduct.sellable
+            business_exchange = $sourceProduct.business_exchange
             source_updated_at = $sourceUpdated
         })
         if ($created.Count -ne 1) { throw "Could not create canonical product for ViewPlan brew_type_id $externalId" }
@@ -199,15 +246,18 @@ foreach ($group in $distinctProducts) {
     }
 
     Invoke-SupaPatch "products?id=eq.$productId" @{
-        name = $sample.beer_name
-        abv = $sample.abv
-        status = "active"
+        name = $sourceProduct.beer_name
+        abv = $sourceProduct.abv
+        status = $canonicalStatus
+        active = $sourceProduct.active
+        sellable = $sourceProduct.sellable
+        business_exchange = $sourceProduct.business_exchange
         source_updated_at = $sourceUpdated
         updated_at = $syncTime
     }
 
     $productMap[$externalId] = $productId
-    if (($productIndex % 100) -eq 0) { Write-Host "Products resolved: $productIndex/$($distinctProducts.Count)" }
+    if (($productIndex % 100) -eq 0) { Write-Host "Products resolved: $productIndex/$($productRows.Count)" }
 }
 Write-Host "Canonical products resolved: $($productMap.Count)"
 
@@ -295,6 +345,6 @@ for ($i = 0; $i -lt $priceRows.Count; $i += $chunkSize) {
 
 Write-Host ""
 Write-Host "ViewPlan canonical commercial sync complete."
-Write-Host "Products: $($distinctProducts.Count)"
+Write-Host "Products: $($productRows.Count)"
 Write-Host "Variants: $($rows.Count)"
 Write-Host "Price rows: $($priceRows.Count)"

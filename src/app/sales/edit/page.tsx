@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getCurrentSalesCatalogue } from "@/lib/products";
 import { saveWeeklySalesPlan } from "../actions";
 
 type PlanTerritory = { territory_id: string };
@@ -8,14 +9,9 @@ type PlanProduct = { product_id: string };
 export default async function EditWeeklySalesPlanPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const { id } = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const [{ data: territories }, { data: products }, planResult] = await Promise.all([
+  const [{ data: territories }, products, planResult] = await Promise.all([
     supabase.from("territories").select("id,name").order("name"),
-    supabase
-      .from("products")
-      .select("id,name,variants:product_variants!inner(id)")
-      .eq("status", "active")
-      .eq("variants.allow_sale", true)
-      .order("name"),
+    getCurrentSalesCatalogue(supabase),
     id ? supabase.from("weekly_sales_plans").select("id,week_start,title,message,status,territories:weekly_sales_plan_territories(territory_id),products:weekly_sales_plan_products(product_id)").eq("id", id).single() : Promise.resolve({ data: null, error: null }),
   ]);
   if (planResult.error) throw new Error(planResult.error.message);
@@ -30,7 +26,7 @@ export default async function EditWeeklySalesPlanPage({ searchParams }: { search
       <Field label="Focus title"><input required maxLength={100} name="title" defaultValue={plan?.title || ""} placeholder="Fresh pale ales for early autumn" className={inputClass}/></Field>
       <Field label="Commercial message"><textarea name="message" maxLength={1000} rows={4} defaultValue={plan?.message || ""} placeholder="What should the team lead with this week?" className={`${inputClass} h-auto py-3`}/></Field>
       <ChoiceGroup title="Areas" hint="Required. These define the bounded initial-push list.">{(territories || []).map((territory) => <Check key={territory.id} name="territory_ids" value={territory.id} label={territory.name} checked={selectedTerritories.has(territory.id)}/>)}</ChoiceGroup>
-      <ChoiceGroup title="Products / specials" hint="Live product, package, price and availability facts are not copied into this plan.">{(products || []).map((product) => <Check key={product.id} name="product_ids" value={product.id} label={product.name} checked={selectedProducts.has(product.id)}/>)}</ChoiceGroup>
+      <ChoiceGroup title="Products / specials" hint="Current RedWillow catalogue. Live package, price and availability facts are not copied into this plan.">{products.map((product) => <Check key={product.id} name="product_ids" value={product.id} label={product.name} checked={selectedProducts.has(product.id)}/>)}</ChoiceGroup>
       <div className="sticky bottom-0 -mx-4 flex justify-end gap-3 border-t border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:p-0 sm:pt-2"><Link href="/sales" className="inline-flex h-11 items-center rounded-xl px-4 text-sm font-semibold text-slate-600">Cancel</Link><button className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white">Save weekly plan</button></div>
     </form></main>
   </div>;
