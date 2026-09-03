@@ -137,6 +137,30 @@ if ($project -notmatch "mbms\.accde$|ViewPlan BMS\.accde$") {
 }
 $db = $access.CurrentDb()
 
+$productNameRs = $db.OpenRecordset(@"
+SELECT internal_id, product_name, is_available
+FROM tblBrew_Product_Names_List
+ORDER BY product_name, internal_id
+"@)
+$productNameState = @{}
+while (-not $productNameRs.EOF) {
+    $productName = ([string](DbValue $productNameRs "product_name")).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($productName)) {
+        $available = DbBool (DbValue $productNameRs "is_available") $false
+        if ($productNameState.ContainsKey($productName) -and $productNameState[$productName].available -ne $available) {
+            throw "ViewPlan Product Names contains contradictory Available values for exact name '$productName'; no reconciliation was attempted."
+        }
+        $productNameState[$productName] = [PSCustomObject]@{
+            internal_id = DbValue $productNameRs "internal_id"
+            available = $available
+        }
+    }
+    $productNameRs.MoveNext()
+}
+$productNameRs.Close()
+if (-not $productNameState.Count) { throw "No ViewPlan Product Names were returned; refusing to reconcile an empty catalogue." }
+Write-Host "ViewPlan Product Names: $($productNameState.Count)"
+
 $productSql = @"
 SELECT bt.*
 FROM tblBrew_Type AS bt
@@ -147,12 +171,16 @@ $productRs = $db.OpenRecordset($productSql)
 $productRows = New-Object System.Collections.Generic.List[object]
 $syncTime = [DateTime]::UtcNow.ToString("o")
 while (-not $productRs.EOF) {
-    $sourceAvailable = RequireDbValueAny $productRs @("is_available", "isAvailable") "current/active state"
+    $beerName = ([string](DbValue $productRs "brew_product_name")).Trim()
+    if (-not $productNameState.ContainsKey($beerName)) {
+        throw "ViewPlan Brew Type '$beerName' has no exact Product Names row; no reconciliation was attempted."
+    }
+    $sourceAvailable = $productNameState[$beerName].available
     $sourceSellable = RequireDbValueAny $productRs @("allow_sale", "isAvailableForSale", "is_available_for_sale") "sellable state"
     $sourceBusinessExchange = RequireDbValueAny $productRs @("is_bex", "BeX", "bex", "business_exchange") "Business Exchange state"
     $productRows.Add([PSCustomObject][ordered]@{
         brew_type_id = [int](DbValue $productRs "brew_type_id")
-        beer_name = [string](DbValue $productRs "brew_product_name")
+        beer_name = $beerName
         abv = DbValue $productRs "brew_abv"
         brew_lud = DbValueAny $productRs @("lud") $null
         active = DbBool $sourceAvailable $true

@@ -70,7 +70,9 @@ sellable               Product-level commercial eligibility retained for later w
 business_exchange      legacy bought-in/swapped brewery Product
 ```
 
-ViewPlan currently supplies these from `tblBrew_Type.is_available`, `tblBrew_Type.allow_sale` and `tblBrew_Type.is_bex` respectively. The canonical **Current Sales Catalogue** is `active = true AND business_exchange = false`. It deliberately does not require `sellable` or current stock availability: weekly focus can pre-sell future stock, while later order and customer-output workflows may apply stricter commercial rules. Inactive and business-exchange Products remain canonical so historical orders and sales continue to resolve.
+ViewPlan currently supplies these from `tblBrew_Product_Names_List.is_available`, `tblBrew_Type.allow_sale` and `tblBrew_Type.is_bex` respectively. ViewPlan exposes no Product Names numeric key on `tblBrew_Type`, so its adapter resolves lifecycle state through the exact `product_name = brew_product_name` lookup used by that source model and aborts before writes on missing or contradictory matches. This source-specific lookup remains inside the adapter.
+
+The canonical **Current Sales Catalogue** is `active = true AND business_exchange = false`. It deliberately does not require `sellable` or current stock availability: weekly focus can pre-sell future stock, while later order and customer-output workflows may apply stricter commercial rules. Inactive and business-exchange Products remain canonical so historical orders and sales continue to resolve.
 
 Legacy Product shells with neither an external identity nor any Product Variant are not members of the current catalogue. They are retained for auditability but marked inactive; they must not be name-matched to an authoritative Product or physically deleted.
 
