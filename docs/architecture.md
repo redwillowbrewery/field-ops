@@ -208,7 +208,7 @@ CRM and operational workflow concepts over the shared Account model.
 
 A time-bounded sales-workflow lens over canonical Accounts, Territories and Products. It stores the week's concise commercial focus and relational selections, but never copies price, package or availability facts. Product selection uses the canonical Current Sales Catalogue, not current availability, because a weekly focus may legitimately pre-sell stock that has not yet been packaged.
 
-Territory-service accounts in selected Territories form an explainable, bounded working list. Per-plan Account progress (`not_contacted`, `contacted`, `follow_up`, `complete`) is operational workflow state rather than Account identity or relationship status. Managed accounts stay outside the territory push and surface through their canonical due Tasks and Appointments.
+Territory-service accounts in selected Territories form an explainable, bounded working list when their relationship state is `current`, `cooling`, `lapsed`, or `prospect`. `closed` and `dormant` Accounts are not inserted automatically; dormant reactivation requires an explicit future workflow/reason rather than territory membership alone. Per-plan Account progress (`not_contacted`, `contacted`, `follow_up`, `complete`) is operational workflow state rather than Account identity or relationship status. Managed accounts stay outside the territory push and surface through their canonical due Tasks and Appointments.
 
 ### Returnable Movement
 A movement/state change for a reusable/collectible physical Container where asset-level tracking is operationally required.
