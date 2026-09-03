@@ -12,13 +12,13 @@ catch {
 }
 
 $db = $access.CurrentDb()
-$matches = New-Object System.Collections.Generic.List[object]
+$fieldMatches = New-Object System.Collections.Generic.List[object]
 
 foreach ($table in $db.TableDefs) {
     if ($table.Name.StartsWith("MSys")) { continue }
     foreach ($field in $table.Fields) {
         if ($field.Name -match "(?i)available|sale|bex|business|exchange") {
-            $matches.Add(([PSCustomObject]@{
+            $fieldMatches.Add(([PSCustomObject]@{
                 table = $table.Name
                 field = $field.Name
                 type = $field.Type
@@ -27,12 +27,12 @@ foreach ($table in $db.TableDefs) {
     }
 }
 
-if (-not $matches.Count) {
+if (-not $fieldMatches.Count) {
     Write-Host "No state-like fields found."
     exit 1
 }
 
-$matches | Sort-Object table, field | Format-Table -AutoSize
+$fieldMatches | Sort-Object table, field | Format-Table -AutoSize
 
 Write-Host ""
 Write-Host "tblBrew_Type fields:"
