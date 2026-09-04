@@ -6,6 +6,7 @@ const RELATIONSHIP_STATUSES = ["current", "cooling", "lapsed", "dormant", "prosp
 
 type TerritoryRelation = { name?: string | null } | { name?: string | null }[] | null;
 type SalesRelation = { last_order_date?: string | null; total_spend?: number | null; total_orders?: number | null } | { last_order_date?: string | null; total_spend?: number | null; total_orders?: number | null }[] | null;
+type LatestOrderRelation = { account_id: string; last_order_date: string | null };
 
 export default async function AccountsPage({
   searchParams,
@@ -48,6 +49,13 @@ export default async function AccountsPage({
     ]);
 
   if (error) throw new Error(error.message);
+
+  const accountIds = (accounts || []).map((account) => account.id);
+  const { data: latestOrderRows, error: latestOrderError } = accountIds.length
+    ? await supabase.rpc("account_latest_order_dates", { p_account_ids: accountIds })
+    : { data: [], error: null };
+  if (latestOrderError) throw new Error(latestOrderError.message);
+  const latestOrderByAccount = new Map<string, string | null>(((latestOrderRows || []) as LatestOrderRelation[]).map((row) => [row.account_id, row.last_order_date]));
 
   const classifications = [...new Set((classificationRows || []).map((row) => row.classification).filter(Boolean))].sort();
   const territories = (territoryRows || []).map((row) => row.name);
@@ -123,7 +131,7 @@ export default async function AccountsPage({
                 <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
                   <Meta label="Type" value={account.classification || "—"} />
                   <Meta label="Territory" value={territoryName || account.brewery_location_zone || "—"} />
-                  <Meta label="Last order" value={formatDate(sales?.last_order_date)} />
+                  <Meta label="Last order" value={formatDate(latestOrderByAccount.get(account.id))} />
                   <Meta label="Lifetime sales" value={formatCurrency(sales?.total_spend)} />
                 </div>
               </Link>
