@@ -67,9 +67,9 @@ Outcomes:
 
 **Sprint exit:** we can replace Sellar package naming without changing customer-facing package behaviour.
 
-# Sprint 0B — Canonical availability (current increment)
+# Sprint 0B — Canonical availability
 
-**Goal:** Brewery Ops becomes the single application-facing source of availability even while Sellar remains the upstream observation source. This is the current Canonical Availability increment and completes the Sprint 0 foundation started by canonical packages.
+**Goal:** Brewery Ops becomes the single application-facing source of availability even while Sellar remains the upstream observation source. This Canonical Availability increment completes the Sprint 0 foundation started by canonical packages.
 
 Primary backlog: P1.1–P1.3.
 
@@ -138,59 +138,32 @@ Do not encode this distinction by duplicating Account data or by overloading rel
 
 ## Sprint 2A — Weekly Sales Focus + Sales Home
 
+**Status: COMPLETE — 4 September 2026.**
+
 **Goal:** replace the indiscriminate all-account landing page with a weekly sales workspace that reflects RedWillow's actual selling rhythm.
 
-Suggested branch:
+Delivered capability includes:
 
-- `feature/weekly-sales-focus`
+- Sales Manager/delegate weekly plan creation/editing;
+- weekly commercial focus, current Product selection and territory selection;
+- canonical current-product lifecycle imported from ViewPlan, including active/sellable/BeX semantics;
+- bounded territory/day-to-day working lists rather than the complete account database;
+- weekly contact progress;
+- explainable filtering by territory and open work;
+- managed-account due actions kept separate from the territory list;
+- account search and direct navigation;
+- actionable account context including primary contact and latest order date;
+- mobile-oriented Sales Home workflow.
 
-### Scope
+The comprehensive account directory remains the responsibility of **Accounts** and is not duplicated on Sales Home.
 
-A Sales Manager or delegated salesperson can create/edit the current weekly sales plan.
+**Sprint exit achieved:** Sales can open Brewery Ops and understand the week's commercial focus, selected areas and remaining initial-push work without starting from an indiscriminate list of every account.
 
-The first useful implementation should support:
-
-- week identity/date range;
-- concise commercial focus/message for the week;
-- selected products/availability themes or specials to talk about, reusing canonical Product/Availability data where practical rather than duplicating product facts;
-- geographic areas/territories expected to be worked;
-- resulting working contact list for territory/day-to-day accounts;
-- contact-list progress through the initial sales push;
-- managed/key-account actions remaining visible without forcing those accounts through the territory list;
-- prominent account search for known targets/exceptions.
-
-Do not introduce AI scoring or opaque "next best account" recommendations. Initial list construction should use explainable existing signals such as selected area/territory, account relationship state, recent activity, due tasks and appointments.
-
-The comprehensive account directory remains the responsibility of **Accounts** and must not be duplicated on Sales Home.
-
-### Suggested Sales Home structure
-
-At minimum the home should be able to answer:
-
-- **What are we talking about this week?**
-- **Which areas are we working?**
-- **Who is left to contact in the initial push?**
-- **Which managed/key accounts have actions due?**
-- **What do I personally need to do today?**
-
-Exact visual treatment is implementation detail; do not turn each answer into a separate heavyweight dashboard.
-
-### Acceptance
-
-- opening Brewery Ops no longer presents an indiscriminate list of every account;
-- Sales Manager/delegate can create or edit the week's sales focus without Mailchimp integration;
-- the week's selected areas and commercial focus are immediately understandable;
-- territory/day-to-day accounts can be presented as a bounded working list rather than the complete account database;
-- each account appearing in that working list has an explainable reason for appearing;
-- progress through the initial push is visible;
-- managed/key accounts are surfaced through due account actions rather than forced through the weekly territory list;
-- known accounts remain quickly searchable;
-- Accounts remains the separate comprehensive directory;
-- implementation works cleanly at normal phone widths;
-- no new ViewPlan/Sellar terminology or page-specific external-system business logic is introduced;
-- existing canonical Account, Contact, Product, Package, Pricing, Availability, Task and Appointment data is reused where applicable.
+See [`sprint-2a-weekly-sales-focus.md`](./sprint-2a-weekly-sales-focus.md) for the implementation brief and accepted domain decisions.
 
 ## Sprint 2B — Account Selling Flow
+
+**Status: NEXT.**
 
 **Goal:** make the Account the fast customer-selling workspace for both territory and managed-account rhythms.
 
@@ -415,4 +388,4 @@ At the end of each sprint:
 
 ## Current recommendation
 
-Complete **Sprint 0B Canonical Availability** before opening Sprint 2 feature branches. Once Sprint 0B has passed deployment/reconciliation and stale-but-valid operational verification, start Sprint 2 with **2A Weekly Sales Focus + Sales Home**. Build the weekly workflow first, then refine Account selling, interaction/follow-up and tactical field use in that order.
+**Sprint 2A is complete. Proceed with Sprint 2B — Account Selling Flow.** Base 2B on the current `main` implementation: simplify the Account action hierarchy and connect the existing canonical Availability + effective pricing flow to Quick Email without duplicating pricing, package or availability logic.
