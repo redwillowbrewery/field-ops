@@ -39,8 +39,11 @@ export async function logVisit(_previousState: LogVisitState, formData: FormData
   const { data: visit, error: visitError } = await supabase.from("visits").insert({ account_id: accountId, contact_id: contactId, salesperson_id: authData.user.id, started_at: now, completed_at: now, notes: notes || null, outcome }).select("id").single();
   if (visitError) return { error: visitError.message };
 
+  const {data:interaction,error:interactionError}=await supabase.from("interactions").insert({account_id:accountId,contact_id:contactId,actor_id:authData.user.id,channel:"visit",occurred_at:now,source_context:"visit",visit_id:visit.id}).select("id").single();
+  if(interactionError)return{error:`Visit saved, but timeline event failed: ${interactionError.message}`};
+
   if (taskType && TASK_TYPES.has(taskType)) {
-    const { error: taskError } = await supabase.from("tasks").insert({ account_id: accountId, contact_id: contactId, visit_id: visit.id, assigned_to: authData.user.id, task_type: taskType, title: taskTitle || `${titleCase(taskType)} follow-up`, due_at: dueDate ? new Date(`${dueDate}T09:00:00`).toISOString() : null, status: "open" });
+    const { error: taskError } = await supabase.from("tasks").insert({ account_id: accountId, contact_id: contactId, visit_id: visit.id, interaction_id:interaction.id, assigned_to: authData.user.id, task_type: taskType, title: taskTitle || `${titleCase(taskType)} follow-up`, due_at: dueDate ? new Date(`${dueDate}T09:00:00`).toISOString() : null, status: "open" });
     if (taskError) return { error: `Visit saved, but follow-up failed: ${taskError.message}` };
   }
 

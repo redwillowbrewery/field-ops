@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
-export type ProspectState = { error?: string };
+export type ProspectMatch = {id:string;name:string;town:string|null;postcode:string|null;relationship_status:string};
+export type ProspectState = { error?: string; matches?:ProspectMatch[] };
 
 export async function createProspect(_prev: ProspectState, formData: FormData): Promise<ProspectState> {
   const name = String(formData.get("name") ?? "").trim();
@@ -24,6 +25,7 @@ export async function createProspect(_prev: ProspectState, formData: FormData): 
   const longitudeRaw = String(formData.get("longitude") ?? "").trim();
   const latitude = latitudeRaw ? Number(latitudeRaw) : null;
   const longitude = longitudeRaw ? Number(longitudeRaw) : null;
+  const duplicateReviewed = String(formData.get("duplicate_reviewed") ?? "") === "yes";
 
   if (!name) return { error: "Prospect name is required." };
   if ((latitude !== null && !Number.isFinite(latitude)) || (longitude !== null && !Number.isFinite(longitude))) {
@@ -33,6 +35,21 @@ export async function createProspect(_prev: ProspectState, formData: FormData): 
   const supabase = await createSupabaseServerClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) redirect("/login");
+
+  if (!duplicateReviewed) {
+    const safeName=name.replace(/[,%()]/g," ").replace(/\s+/g," ").trim();
+    const safePostcode=postcode.replace(/\s+/g,"");
+    const filters=[] as string[];
+    if(safeName.length>=3)filters.push(`name.ilike.%${safeName}%`);
+    if(safePostcode)filters.push(`postcode.ilike.${safePostcode.split("").join("%")}`);
+    if(phone)filters.push(`phone.eq.${phone.replace(/[,()]/g,"")}`,`mobile.eq.${phone.replace(/[,()]/g,"")}`);
+    if(email)filters.push(`email.eq.${email.replace(/[,()]/g,"")}`);
+    if(filters.length){
+      const {data:matches,error:matchError}=await supabase.from("accounts").select("id,name,town,postcode,relationship_status").or(filters.join(",")).order("name").limit(8);
+      if(matchError)return{error:`Could not check for existing Accounts: ${matchError.message}`};
+      if(matches?.length)return{matches:matches as ProspectMatch[]};
+    }
+  }
 
   const { data: account, error } = await supabase.from("accounts").insert({
     name,
@@ -46,7 +63,6 @@ export async function createProspect(_prev: ProspectState, formData: FormData): 
     phone: phone || null,
     email: email || null,
     website: website || null,
-    notes: notes || null,
     latitude,
     longitude,
     geocoded_at: latitude !== null && longitude !== null ? new Date().toISOString() : null,
@@ -68,6 +84,8 @@ export async function createProspect(_prev: ProspectState, formData: FormData): 
     });
     if (contactError) return { error: `Prospect saved, but contact failed: ${contactError.message}` };
   }
+
+  if(notes){const {error:noteError}=await supabase.from("account_notes").insert({account_id:account.id,author_id:authData.user.id,body:notes});if(noteError)return{error:`Prospect saved, but note failed: ${noteError.message}`}}
 
   revalidatePath("/accounts");
   revalidatePath("/map");

@@ -144,6 +144,23 @@ Prefer compatibility/migration over destructive rewrites.
 
 Exit: Codex can explain which existing records remain as-is, which become canonical Interaction producers, and how the Account timeline will present them coherently.
 
+### 2C.0 audit decision — 4 September 2026
+
+The implementation and production-data audit found 31 Account Notes, including 14 provisional call/email launch notes and 13 truthful Quick Email preparation notes; 4 structured Visits; 3 Visit-linked Tasks; 3 Appointments; and 3 weekly-progress records. All 1,901 current Accounts have a ViewPlan identity, so the Brewery Ops-only prospect path exists in code but has not yet accumulated production records.
+
+Migration decision:
+
+- Historic free-text Account Notes remain Notes.
+- Historic `[call]` / `[email]` notes are not promoted to completed Interactions because the old endpoint recorded the external-app launch before contact or sending was known. Timeline may label them as legacy initiated/prepared events without changing their stored meaning.
+- Historic Quick Email records remain truthful preparation notes; they are not treated as sent-email Interactions.
+- Visit remains the richer specialist record. Each existing and future Visit links to one canonical Interaction event without copying Visit notes/outcome into a second independent activity record.
+- Task and Appointment remain distinct future-work concepts and are linked from the originating Interaction where useful.
+- Prospect creation continues to insert a normal Account with no required ViewPlan identity. Duplicate awareness is advisory and explainable; it never merges automatically.
+- Prospect-to-ViewPlan conversion is an explicit authenticated action that attaches the exact numeric ViewPlan customer identity to the existing Account and records an audit row. It is rejected if that identity already belongs to another Account. The existing ViewPlan connector then continues to upsert the same canonical Account by that explicit identity.
+- New call/email/WhatsApp/visit outcomes write canonical Interactions. Weekly progress transition is performed through one reusable policy path: qualifying contact moves `not_contacted` to `contacted`, or to `follow_up` when an outstanding follow-up is created; it never marks work complete automatically.
+
+This preserves every existing record, avoids false claims about historic contact/sending, and introduces no parallel Prospect, follow-up or activity model.
+
 ## 2C.1 — Brewery Ops-owned prospect workflow
 
 ### Minimum field workflow
