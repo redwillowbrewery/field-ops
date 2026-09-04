@@ -88,6 +88,8 @@ Consumers:
 
 ### P2.1 Weekly Sales Focus
 
+Implementation status: **COMPLETE — 4 September 2026.**
+
 Goal: make the app follow RedWillow's normal weekly selling rhythm instead of opening on the full account database.
 
 Business rhythm:
@@ -97,15 +99,18 @@ Business rhythm:
 - Monday onward: geographically targeted call/email/WhatsApp contact once customers understand post-weekend requirements.
 - Later in the week: tactical sales/collection opportunities around routes/areas already being worked.
 
-Initial capability:
+Delivered capability:
 - Sales Manager/delegate creates/edits a weekly plan.
-- Store week/date range, concise sales focus, selected products/themes/specials and areas/territories.
+- Store week/date range, concise sales focus, selected current products/themes/specials and areas/territories.
+- Canonical product lifecycle imports ViewPlan active/sellable/BeX semantics so historical and BeX products do not pollute current selection.
 - Build a bounded working contact list from explainable existing account signals.
 - Track progress through the initial push.
+- Filter/focus working lists by territory and open work.
+- Surface useful account context including primary contact and latest order date.
 - Keep prominent account search for known targets/exceptions.
 - Do not integrate Mailchimp yet; the weekly focus is canonical workflow input, not Mailchimp-owned data.
 
-Acceptance:
+Acceptance achieved:
 - landing page does not show every account simply because it exists;
 - current weekly focus and selected areas are immediately understandable;
 - working list is bounded and each included account has an explainable reason;
@@ -113,6 +118,8 @@ Acceptance:
 - Accounts remains the separate comprehensive directory.
 
 ### P2.2 Sales rhythm / managed account lens
+
+Implementation status: **foundation delivered in Sprint 2A; continue refining through Account Selling Flow.**
 
 Goal: support both territory/day-to-day selling and managed/key-account selling without duplicating Account data.
 
@@ -130,6 +137,8 @@ Acceptance:
 
 ### P2.3 Account Selling Flow
 
+Implementation status: **NEXT — Sprint 2B.**
+
 Goal: make Account the fast customer-selling workspace.
 
 Account should answer:
@@ -143,12 +152,14 @@ Account should answer:
 - Surface due follow-up/appointment and recent useful activity.
 - Reuse canonical availability, effective pricing and package/container rules.
 - Make call/email/WhatsApp/visit/follow-up actions obvious where useful.
+- Connect product selection into Quick Email without forcing the salesperson to restart the selection task.
 - Use progressive disclosure for lower-frequency operations.
 - Keep phone layout primary for field sales.
 
 Acceptance:
 - common sales actions require minimal navigation/taps;
 - account package restriction and current availability/price remain coherent;
+- Availability and Quick Email reuse the same canonical selling data rather than independently reconstructing business rules;
 - no page-specific pricing/package/availability business logic is added.
 
 ### P2.4 Interaction + follow-up workflow
