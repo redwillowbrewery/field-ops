@@ -40,6 +40,35 @@ Goal: make `one_way_only` a canonical package rule.
 - Display preference visibly on account.
 - Keep `Any packaging` as default.
 
+### P0.4 Product data maintenance and durable Brewery Ops overrides
+
+Goal: let Brewery Ops users efficiently govern imported legacy Product data without editing every Product in ViewPlan or having local decisions undone by a later import.
+
+Canonical model:
+- preserve the latest observed ViewPlan lifecycle state separately from Brewery Ops governance decisions;
+- support nullable Brewery Ops overrides for Product `active`, `sellable` and `business_exchange` state;
+- calculate canonical Product state from the Brewery Ops override when present, otherwise from the current imported observation;
+- retain inactive Products and Product Variants for historical order resolution and auditability;
+- record who made each override, when, and an optional reason;
+- allow an override to be cleared deliberately so the Product resumes following ViewPlan;
+- ensure reconciliation/imports update source observations but never silently overwrite an active Brewery Ops override.
+
+Data-maintenance workflow:
+- provide a searchable, filterable Product/Variant table with multi-select and bulk actions;
+- distinguish imported ViewPlan state, effective canonical state and Brewery Ops override state clearly;
+- support bulk actions to exclude from the current catalogue, mark not sellable, mark/unmark business exchange, and restore imported state;
+- provide candidate filters such as inactive source Product, no current availability, no recent sales, missing external identity and legacy shell;
+- preview the impact of a bulk action before applying it;
+- warn when selected Products have current stock, availability, recent orders or other evidence that merits review;
+- do not automatically mark a Product inactive merely because it has no current stock, since future Products may intentionally be pre-sold.
+
+Acceptance:
+- an authorised user can clean up a large legacy Product set quickly without working through individual ViewPlan Product pages;
+- subsequent ViewPlan imports preserve explicit Brewery Ops overrides while continuing to refresh observed source state;
+- current catalogue, Account selling, Availability, Quick Email and Price List consume the same effective canonical Product state;
+- historical orders continue to resolve to retained inactive Products and Product Variants;
+- every override and restoration is auditable and reversible.
+
 ## Priority 1 — canonical availability service
 
 ### P1.1 Availability snapshot/cache
