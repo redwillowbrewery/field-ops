@@ -15,8 +15,8 @@ export function QuickPriceEmail({accountId,accountName,recipient,rows,initialVar
   try{await fetch(`/api/accounts/${accountId}/quick-price-email/log`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recipient:to,formats:[...new Set(selected.map(row=>row.format))],variantIds:selected.map(row=>row.variantId)})});}catch{}
   const subject=`RedWillow Brewery - current availability & prices`;
   const intro=`Hi,\n\nHere is our current availability and your trade pricing.\n`;
-  const groups:[Row["format"],string][]=[["cask","CASK"],["keg","KEG"],["can","CAN"]];
-  const sections=groups.map(([f,label])=>{const items=selected.filter(r=>r.format===f);if(!items.length)return"";const lines=items.map(r=>`${r.name} | ${r.packageType} | ${money(r.price)}${r.description?` | ${r.description}`:""}`);return `\n${label}\nBeer | Package | Price | Description\n${lines.join("\n")}`;}).filter(Boolean).join("\n");
+  const groups:[Row["format"],string][]=[["cask","CASK"],["keg","KEG"],["can","CANS"]];
+  const sections=groups.map(([f,label])=>{const items=selected.filter(r=>r.format===f);if(!items.length)return"";const products=items.map(r=>{const description=plainText(r.description);return [`${r.name}`,`${r.packageType} · ${money(r.price)}`,description].filter(Boolean).join("\n")}).join("\n\n");return `\n${label}\n${"-".repeat(label.length)}\n\n${products}`;}).filter(Boolean).join("\n\n");
   const footer=`\n\nFor images, tasting notes and more product information, view our Sellar shop:\n${sellarUrl}\n\nPrices shown are your current trade prices and availability is subject to confirmation.\n\nCheers,\nRedWillow Brewery`;
   window.location.href=`mailto:${encodeURIComponent(to.trim())}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(intro+sections+footer)}`;
  }
@@ -29,3 +29,4 @@ export function QuickPriceEmail({accountId,accountName,recipient,rows,initialVar
 }
 function cap(v:string){return v.charAt(0).toUpperCase()+v.slice(1)}
 function money(v:number){return new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",minimumFractionDigits:2,maximumFractionDigits:2}).format(v)}
+function plainText(value:string){return value.replace(/\s+/g," ").trim()}
