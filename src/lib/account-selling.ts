@@ -8,7 +8,8 @@ export type AccountSellingResult={rows:AccountSellingRow[];observedAt:string|nul
 
 /** The canonical, account-aware dataset used by every customer selling surface. */
 export async function getAccountSellingData(db:SupabaseClient,accountId:string,preference:AccountContainerPreference):Promise<AccountSellingResult>{
- const [availability,prices]=await Promise.all([getAccountAvailability(db,preference),getAllEffectivePrices(db,accountId)]);
+ const availability=await getAccountAvailability(db,preference);
+ const prices=await getEffectivePrices(db,accountId,availability.items.map(item=>item.variantId));
  return composeAccountSellingRows(availability,prices);
 }
 
@@ -19,13 +20,9 @@ export function composeAccountSellingRows(availability:AvailabilityResult,prices
 }
 function toPrice(value:number|string|null|undefined){if(value==null)return null;const number=Number(value);return Number.isFinite(number)?number:null}
 
-async function getAllEffectivePrices(db:SupabaseClient,accountId:string){
- const pageSize=1000;const rows:EffectivePriceRow[]=[];
- for(let from=0;;from+=pageSize){
-  const {data,error}=await db.rpc("customer_effective_price_list",{p_account_id:accountId}).range(from,from+pageSize-1);
-  if(error)throw error;
-  const page=(data||[]) as EffectivePriceRow[];rows.push(...page);
-  if(page.length<pageSize)break;
- }
- return rows;
+async function getEffectivePrices(db:SupabaseClient,accountId:string,variantIds:string[]){
+ if(!variantIds.length)return [];
+ const {data,error}=await db.rpc("customer_effective_prices_for_variants",{p_account_id:accountId,p_product_variant_ids:variantIds});
+ if(error)throw error;
+ return(data||[]) as EffectivePriceRow[];
 }
