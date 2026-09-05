@@ -9,6 +9,7 @@ export type AppointmentState = { error?: string; redirectTo?: string };
 export async function createAppointment(_prev: AppointmentState, formData: FormData): Promise<AppointmentState> {
   const accountId = String(formData.get("account_id") ?? "");
   const contactId = String(formData.get("contact_id") ?? "") || null;
+  const interactionId = String(formData.get("interaction_id") ?? "") || null;
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const duration = Number(formData.get("duration") ?? 30);
@@ -21,6 +22,15 @@ export async function createAppointment(_prev: AppointmentState, formData: FormD
   const supabase = await createSupabaseServerClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) redirect("/login");
+
+  if (contactId) {
+    const {data:contact}=await supabase.from("contacts").select("id").eq("id",contactId).eq("account_id",accountId).maybeSingle();
+    if(!contact)return {error:"That Contact does not belong to this Account."};
+  }
+  if (interactionId) {
+    const {data:interaction}=await supabase.from("interactions").select("id").eq("id",interactionId).eq("account_id",accountId).eq("actor_id",authData.user.id).maybeSingle();
+    if(!interaction)return {error:"That interaction cannot be linked to this appointment."};
+  }
 
   const startsAt = new Date(`${date}T${time}:00`);
   if (Number.isNaN(startsAt.getTime())) return { error: "Choose a valid date and time." };
@@ -35,6 +45,7 @@ export async function createAppointment(_prev: AppointmentState, formData: FormD
     purpose: purpose || "Sales visit",
     notes: notes || null,
     status: "planned",
+    interaction_id: interactionId,
   }).select("id").single();
 
   if (error) return { error: error.message };

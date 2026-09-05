@@ -51,43 +51,10 @@ export async function createProspect(_prev: ProspectState, formData: FormData): 
     }
   }
 
-  const { data: account, error } = await supabase.from("accounts").insert({
-    name,
-    classification: classification || null,
-    relationship_status: "prospect",
-    assigned_rep_id: authData.user.id,
-    address_line_1: address1 || null,
-    town: town || null,
-    postcode: postcode || null,
-    country: "United Kingdom",
-    phone: phone || null,
-    email: email || null,
-    website: website || null,
-    latitude,
-    longitude,
-    geocoded_at: latitude !== null && longitude !== null ? new Date().toISOString() : null,
-    active: true,
-  }).select("id").single();
-
-  if (error) return { error: error.message };
-
-  if (contactName) {
-    const { error: contactError } = await supabase.from("contacts").insert({
-      account_id: account.id,
-      full_name: contactName,
-      job_title: contactRole || null,
-      phone: contactPhone || null,
-      email: contactEmail || null,
-      is_primary: true,
-      active: true,
-      source: "field_ops",
-    });
-    if (contactError) return { error: `Prospect saved, but contact failed: ${contactError.message}` };
-  }
-
-  if(notes){const {error:noteError}=await supabase.from("account_notes").insert({account_id:account.id,author_id:authData.user.id,body:notes});if(noteError)return{error:`Prospect saved, but note failed: ${noteError.message}`}}
+  const { data: accountId, error } = await supabase.rpc("create_brewery_ops_prospect", {p_name:name,p_classification:classification||null,p_address_line_1:address1||null,p_town:town||null,p_postcode:postcode||null,p_phone:phone||null,p_email:email||null,p_website:website||null,p_latitude:latitude,p_longitude:longitude,p_contact_name:contactName||null,p_contact_role:contactRole||null,p_contact_phone:contactPhone||null,p_contact_email:contactEmail||null,p_notes:notes||null});
+  if (error || !accountId) return { error: error?.message || "Could not create prospect." };
 
   revalidatePath("/accounts");
   revalidatePath("/map");
-  redirect(`/accounts/${account.id}`);
+  redirect(`/accounts/${accountId}`);
 }

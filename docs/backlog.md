@@ -234,6 +234,7 @@ Goal: support home-based prospecting by allowing Sales to prepare multiple prosp
 
 - Canonical concept: each accepted row creates a normal Brewery Ops `Account` with `relationship_status = prospect`; do not introduce a separate Prospect model.
 - Current source authority: a salesperson-provided CSV/XLSX is an intake source only; Brewery Ops becomes authoritative after explicit import.
+- Security constraint: do not expose the current `xlsx` package to untrusted browser uploads; it has unresolved parser advisories. Prefer CSV-only for the first release, or select and validate a maintained server-side parser before accepting XLSX.
 - Publish a downloadable template with a small required field set and clearly named optional Account/contact/location fields.
 - Validate the complete file before writing, show row-level errors and provide a preview of records that would be created.
 - Reuse the same explainable duplicate-awareness rules as single Prospect creation; never fuzzy-merge or silently attach ViewPlan identities.

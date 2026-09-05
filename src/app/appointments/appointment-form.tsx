@@ -7,7 +7,7 @@ import { createAppointment, updateAppointment, type AppointmentState } from "./a
 const initialState: AppointmentState = {};
 
 type Contact = { id: string; full_name: string | null };
-type Initial = { id?: string; accountId: string; contactId?: string | null; startsAt?: string; endsAt?: string | null; purpose?: string | null; notes?: string | null };
+type Initial = { id?: string; accountId: string; interactionId?: string; contactId?: string | null; startsAt?: string; endsAt?: string | null; purpose?: string | null; notes?: string | null };
 
 export function AppointmentForm({ contacts, initial }: { contacts: Contact[]; initial: Initial }) {
   const router = useRouter();
@@ -23,6 +23,7 @@ export function AppointmentForm({ contacts, initial }: { contacts: Contact[]; in
   return <form action={formAction} className="space-y-5">
     {initial.id && <input type="hidden" name="appointment_id" value={initial.id} />}
     <input type="hidden" name="account_id" value={initial.accountId} />
+    {initial.interactionId && <input type="hidden" name="interaction_id" value={initial.interactionId} />}
     <div><label className="mb-2 block text-sm font-semibold">Contact</label><select name="contact_id" defaultValue={initial.contactId || ""} className="h-12 w-full rounded-xl border border-slate-300 bg-white px-3"><option value="">No contact selected</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.full_name || "Unnamed contact"}</option>)}</select></div>
     <div className="grid gap-3 sm:grid-cols-3">
       <div><label className="mb-2 block text-sm font-semibold">Date</label><input type="date" name="date" defaultValue={localDate(starts)} required className="h-12 w-full rounded-xl border border-slate-300 bg-white px-3" /></div>
