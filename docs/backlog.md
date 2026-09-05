@@ -226,6 +226,8 @@ Acceptance:
 - every identity change and record movement is auditable;
 - ambiguous matches remain unresolved and visible for human review.
 
+Transitional prevention implemented: Brewery Ops-created prospects receive an immutable `BOP-######` reference. Staff copy it into ViewPlan's External Ref ID when creating the trading customer, allowing the read-only connector to reconcile the exact existing Account before inserting. The conflict workflow above remains necessary for missing/mistyped references and duplicates created before this bridge is used.
+
 #### Follow-up: spreadsheet prospect intake
 
 Goal: support home-based prospecting by allowing Sales to prepare multiple prospects in a documented spreadsheet format and upload them to Brewery Ops without turning the spreadsheet into a second source of truth.

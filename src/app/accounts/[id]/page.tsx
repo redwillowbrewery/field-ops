@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AccountTimeline } from "@/components/account-timeline";
 import { AccountContactAction } from "@/components/account-contact-action";
 import { BottomNav } from "@/components/bottom-nav";
+import { CopyTextButton } from "@/components/copy-text-button";
 import { getAccountSellingData } from "@/lib/account-selling";
 import type { AccountContainerPreference } from "@/lib/package-eligibility";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -203,6 +204,31 @@ export default async function AccountDetailPage({
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
+          {account.brewery_ops_reference ? (
+            <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-950">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Brewery Ops reference
+                  </p>
+                  <p className="mt-1 font-mono text-xl font-bold tracking-wide">
+                    {account.brewery_ops_reference}
+                  </p>
+                </div>
+                <CopyTextButton value={account.brewery_ops_reference} />
+              </div>
+              {!account.brewery_customer_id ? (
+                <p className="mt-3 text-sm text-blue-800">
+                  When creating this customer in ViewPlan, enter this exact value
+                  in External Ref ID before the next customer import.
+                </p>
+              ) : (
+                <p className="mt-3 text-sm text-blue-800">
+                  This Account is now linked to ViewPlan customer {account.brewery_customer_id}.
+                </p>
+              )}
+            </section>
+          ) : null}
           <section className="rounded-2xl bg-slate-950 p-5 text-white shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-300">
               What can I sell them?
