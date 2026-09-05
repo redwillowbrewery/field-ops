@@ -161,7 +161,7 @@ export default async function PlanNearbyPage({ params }: { params: Promise<{ id:
                       {account.reasons.slice(0, 4).map((reason) => <span key={reason} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{reason}</span>)}
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-                      <Link href={`/accounts/${account.id}`} className="flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700">Open account</Link>
+                      <Link href={`/accounts/${account.id}`} className="flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700">View account</Link>
                       <Link href={`/accounts/${account.id}/appointment?date=${dateParam(appointment.starts_at)}`} className="flex h-10 items-center justify-center rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white">Create appointment</Link>
                     </div>
                   </div>

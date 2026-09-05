@@ -207,6 +207,46 @@ Acceptance:
 - timeline/activity remains coherent;
 - data is usable later by contact -> order intelligence.
 
+#### Follow-up: conflicting ViewPlan customer identity reconciliation
+
+Decision required: define the safe operator workflow for the case where a ViewPlan customer has already been imported as one canonical Account before a Brewery Ops-created prospect is linked to that same ViewPlan identity.
+
+- Canonical concept: `Account` identity and its related Contacts, Interactions, Tasks, Appointments, Notes and history.
+- Current source authority: Brewery Ops owns the canonical Account and prospect relationship; ViewPlan remains the read-only source of its external customer identity and imported commercial fields.
+- Target authority: Brewery Ops retains one explicitly selected canonical Account and an auditable external-identity mapping.
+- Provide an authorised reconciliation workflow that shows both Accounts and all affected child data before any change.
+- Require an explicit survivor selection; never choose or merge Accounts through fuzzy name matching.
+- Define safe re-parenting, conflict handling, audit history and a reversible/recoverable approach before implementation.
+- Keep ViewPlan read-only and contain ViewPlan-specific semantics within the reconciliation adapter boundary.
+- Until this workflow exists, continue rejecting an external identity that is already attached to another Account rather than guessing or silently merging.
+
+Acceptance:
+- an authorised user can resolve a confirmed duplicate without losing Account history or leaving child records split across two Accounts;
+- the selected canonical Account retains the exact ViewPlan identity and subsequent imports update that Account;
+- every identity change and record movement is auditable;
+- ambiguous matches remain unresolved and visible for human review.
+
+#### Follow-up: spreadsheet prospect intake
+
+Goal: support home-based prospecting by allowing Sales to prepare multiple prospects in a documented spreadsheet format and upload them to Brewery Ops without turning the spreadsheet into a second source of truth.
+
+- Canonical concept: each accepted row creates a normal Brewery Ops `Account` with `relationship_status = prospect`; do not introduce a separate Prospect model.
+- Current source authority: a salesperson-provided CSV/XLSX is an intake source only; Brewery Ops becomes authoritative after explicit import.
+- Publish a downloadable template with a small required field set and clearly named optional Account/contact/location fields.
+- Validate the complete file before writing, show row-level errors and provide a preview of records that would be created.
+- Reuse the same explainable duplicate-awareness rules as single Prospect creation; never fuzzy-merge or silently attach ViewPlan identities.
+- Let the operator exclude suspected duplicates or explicitly confirm that a row represents a different business.
+- Record import batch, source filename, operator, time and per-row result for audit and safe retry.
+- Do not include ViewPlan writes or require a ViewPlan customer number.
+
+Product decision required before implementation: agree the template columns, which fields are mandatory, maximum batch size, and whether the first release accepts CSV only or CSV and XLSX.
+
+Acceptance:
+- a salesperson can download the current template, prepare prospects away from the map workflow and preview a valid import;
+- invalid rows do not cause a partial or opaque import;
+- confirmed rows create canonical Accounts and optional Contacts using the same rules as the phone form;
+- retries cannot silently create the same batch twice.
+
 ### P2.5 Tactical sales + field workflow
 
 Goal: once the initial push is complete, help sales exploit areas/routes already being worked.

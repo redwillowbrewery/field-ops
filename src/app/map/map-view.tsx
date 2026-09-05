@@ -118,7 +118,7 @@ export function MapView({ accounts, appointments }: { accounts: AccountPoint[]; 
         fillOpacity: 0.96,
         weight: 3,
       });
-      marker.bindPopup(`<div style="min-width:210px;padding:2px"><strong style="font-size:14px">${escapeHtml(account.name)}</strong><br><span>${escapeHtml([account.town, account.postcode].filter(Boolean).join(" · "))}</span><br><span style="text-transform:capitalize">${escapeHtml(status)}</span>${account.overdue_follow_up ? " · <strong>follow-up overdue</strong>" : ""}<br><a style="display:inline-block;margin-top:8px;font-weight:700" href="/accounts/${account.id}">Open account →</a></div>`);
+      marker.bindPopup(`<div style="min-width:210px;padding:2px"><strong style="font-size:14px">${escapeHtml(account.name)}</strong><br><span>${escapeHtml([account.town, account.postcode].filter(Boolean).join(" · "))}</span><br><span style="text-transform:capitalize">${escapeHtml(status)}</span>${account.overdue_follow_up ? " · <strong>follow-up overdue</strong>" : ""}<br><a style="display:inline-block;margin-top:8px;font-weight:700" href="/accounts/${account.id}">View account →</a></div>`);
       marker.addTo(layerRef.current);
       bounds.push([account.latitude, account.longitude]);
     }

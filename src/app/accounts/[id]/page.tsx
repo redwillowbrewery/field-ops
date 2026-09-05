@@ -30,6 +30,7 @@ export default async function AccountDetailPage({
     { data: salesRows },
     { data: latestOrderRows },
     { data: containers },
+    selling,
   ] = await Promise.all([
     supabase
       .from("visits")
@@ -74,6 +75,11 @@ export default async function AccountDetailPage({
       .from("account_containers_snapshot")
       .select("id,off_site_days,lost")
       .eq("account_id", id),
+    getAccountSellingData(
+      supabase,
+      id,
+      (account.container_preference || "any") as AccountContainerPreference,
+    ),
   ]);
   const territory = Array.isArray(account.territory)
     ? account.territory[0]
@@ -130,11 +136,6 @@ export default async function AccountDetailPage({
     ),
     over60 = active.filter((c) => Number(c.off_site_days || 0) > 60).length;
   const oneWayOnly = account.container_preference === "one_way_only";
-  const selling = await getAccountSellingData(
-    supabase,
-    id,
-    (account.container_preference || "any") as AccountContainerPreference,
-  );
   const pricedSelling = selling.rows.filter(
     (row) => (row.customerPrice ?? row.listPrice) != null,
   );
@@ -339,7 +340,7 @@ export default async function AccountDetailPage({
                 rel={mapHref ? "noreferrer" : undefined}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold"
               >
-                Navigate
+                Location
               </a>
             </div>
           </Section>
