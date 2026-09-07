@@ -2,9 +2,11 @@
 
 ## Status
 
-**NEXT while Sprint 2B is in sales-team field testing.**
+**CURRENT — confirmed 5 September 2026.**
 
-Do not treat Sprint 2B as closed until field feedback has been reviewed. Genuine 2B defects may be fixed while 2C is prepared, but avoid expanding 2B scope merely because 2C work has started.
+See the [7 September implementation review](./sprint-2c-implementation-review.md) for the current code audit, commercial mapping evidence and outstanding operational/field validation. The original discovery audit below is retained as historical context.
+
+Do not treat Sprint 2B as closed until field feedback has been reviewed. Genuine 2B defects may be fixed while 2C is underway, but avoid expanding 2B scope merely because 2C work has started.
 
 ## Business outcome
 
@@ -21,6 +23,16 @@ For a new lead in the field:
 This is deliberately not a broad CRM expansion. It consolidates existing prospect, visit, note, task, appointment and provisional interaction behaviour around the canonical Account model.
 
 ## Architectural decisions
+
+### Transitional ownership — agreed 5 September 2026
+
+Sprint 2C is **CURRENT**. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+
+The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
+
+After the Sales work, establish **Product → Production → Inventory** operational ownership before Brewery Ops-owned **Order Capture → Logistics**. Ownership must be explicitly accepted for the underlying product, batch/packaging and stock/provenance services before order commitment, allocation, dispatch or logistics authority moves. Read-only Account order history and tactical sales/container views can continue during transition. ViewPlan remains read-only from Brewery Ops.
+
+See [Architecture](./architecture.md) for configurable Sales/Production/Logistics workspace defaults, workspace switching and the separate permission boundary.
 
 ### Brewery Ops owns prospects
 
@@ -386,6 +398,41 @@ Phone-width field test should cover:
 - complete Task/Appointment later;
 - prospect remains functional with no ViewPlan identity.
 
+## 2C.8 — ViewPlan Account commercial/credit snapshot
+
+**7 September clarification:** use the all-unpaid-orders outstanding total in GBP. Keep ViewPlan ordering permission and dispatch permission separate. When ordering is allowed but dispatch is blocked, prominently show **Can order — payment required before dispatch**. An ordering block remains a stop; neither permission is inferred from balance or credit limit. Preserve unknown and last-known states. See the implementation review for exact mappings and validation status.
+
+This is a contained **CURRENT Sprint 2C** enhancement to the overnight Account sync, preserving all prospect, Interaction and follow-up requirements above.
+
+Required source facts, mapped to the existing canonical Account by exact ViewPlan identity:
+
+- balance, preserving the audited source currency and sign semantics;
+- credit limit;
+- explicit ViewPlan hold/stop status;
+- source (`ViewPlan`);
+- snapshot timestamp recording when these commercial facts were successfully read, distinct from a later attempt or page-render time.
+
+Show this compact snapshot prominently on Account so Sales can understand the commercial position during a conversation. It is read-only in Brewery Ops, including hold/stop: no local credit-limit editing, hold override or ViewPlan write is introduced.
+
+**ViewPlan's explicit hold/stop state is the authoritative sell/stop signal.** Balance and credit limit are informative facts. Do not invent a Brewery Ops credit rule from balance versus limit, overdue debt or a calculated remaining-credit value. A balance above the limit must not create a local hold; a balance below the limit must not clear a ViewPlan hold. Unknown/missing hold status must not be presented as permission to sell.
+
+Before implementation, audit and document the exact ViewPlan fields/query, value meanings, currency and refresh behaviour. Do not assume customer-master `lud` changes when balance, credit limit or hold changes: the overnight Account sync must refresh commercial facts for mapped Accounts even when CRM/customer-master fields are unchanged. Keep source-specific interpretation in the adapter and expose one canonical snapshot to Account consumers.
+
+Preserve the last known-good snapshot and its original timestamp on sync failure, visibly indicating stale/unavailable data as appropriate. Never substitute zero balance, zero credit limit or clear hold for absent data. Unmapped prospects remain fully usable for CRM and show commercial data as unavailable, without creating a ViewPlan customer or duplicate Account. Keep CRM-owned fields/history intact.
+
+Acceptance:
+
+1. Overnight sync updates all five facts on the same mapped Account, including commercial-only changes with unchanged customer-master timestamps.
+2. Account shows balance, credit limit, explicit hold/stop, source and snapshot timestamp together at phone width.
+3. Explicit hold remains stop even below the limit; an explicitly clear hold does not become stop merely because balance exceeds the limit.
+4. Missing/unknown status is visibly unknown; failed refresh preserves the previous successful values and timestamp without claiming freshness or clearance.
+5. A Brewery Ops-only prospect can still record Interactions and follow-ups with no commercial snapshot.
+6. Snapshot writes occur only through the connector; no user-facing mutation or ViewPlan write is added.
+
+## 2C.9 — Live decorated price lists
+
+Deliver the [live price-list slice](./sprint-2c-live-price-lists.md), including generic standard prices, revocable customer-specific links, shared decorated presentation, freshness and Account/Quick Email controls. Preserve all preceding prospect, Interaction, follow-up and snapshot requirements. Verify price separation, package restrictions, anonymous isolation and link revocation before distribution.
+
 ## Explicitly out of Sprint 2C
 
 Do not add:
@@ -440,6 +487,10 @@ Inspect existing schema/data/routes and document how notes, visits and provision
 ### 2C.5 — Mobile field test
 
 Use with real prospects and existing customers; refine vocabulary/tap count from sales feedback.
+
+### 2C.6 — Commercial snapshot delivery
+
+Implement the overnight Account snapshot and verify all acceptance cases in requirement 2C.8.
 
 Combine branches where coherent. Branch boundaries are not ceremony.
 
@@ -499,6 +550,7 @@ Sprint 2C is done when:
 - Account timeline presents coherent truthful activity;
 - Quick Email does not claim an email was sent when Brewery Ops only prepared it;
 - both existing customers and Brewery Ops-only prospects pass the mobile field workflow;
+- the overnight commercial snapshot passes requirement 2C.8, including hold authority, missing data and failed-refresh cases;
 - lint/build/CI are green;
 - no Order Capture, analytics, ViewPlan writes or heavyweight CRM pipeline is introduced.
 

@@ -6,6 +6,7 @@ export type CanonicalPackage={
  name:string;
  broad_format:"cask"|"keg"|"can"|"bottle"|"other";
  package_system:string|null;
+ capacity_litres?:number|string|null;
  lifecycle:PackageLifecycle;
  procurement_mode:"consumable"|"reusable_asset"|"externally_supplied"|"none";
 };
@@ -18,7 +19,9 @@ export function packageAllowedForAccount(pkg:CanonicalPackage|null|undefined,pre
 
 export function packageSalesLabel(pkg:CanonicalPackage|null|undefined,fallback:string){
  if(!pkg)return fallback.trim();
- if(pkg.package_system==="Steel"&&pkg.broad_format==="keg")return pkg.name.replace(/\s*Litre\s*/i,"L ").replace(/\s+Keg$/i," Keg");
- if(pkg.package_system==="Firkin")return"Cask";
- return pkg.package_system||pkg.name||fallback.trim();
+ const capacity=Number(pkg.capacity_litres);
+ if(pkg.broad_format==="keg"&&Number.isFinite(capacity)&&capacity>0){
+  return `${capacity}L ${pkg.package_system==="Steel"?"Keg":pkg.package_system||pkg.name}`;
+ }
+ return pkg.name||pkg.package_system||fallback.trim();
 }

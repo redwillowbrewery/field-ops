@@ -2,7 +2,7 @@
 
 ## Status
 
-**NEXT after completed Sprint 2A.**
+**Sales-team field testing; Sprint 2C is CURRENT as of 5 September 2026.** Do not infer 2B sign-off from the start of 2C; review outstanding field feedback and keep genuine 2B fixes bounded.
 
 ## Business outcome
 

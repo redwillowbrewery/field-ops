@@ -35,6 +35,18 @@ The connector deliberately does **not** overwrite existing:
 
 For a brand-new account only, an initial relationship status is seeded from ViewPlan availability/prospect flags. Later syncs do not replace it.
 
+## Sprint 2C requirement — overnight Account commercial snapshot
+
+Sprint 2C is CURRENT. The commercial module is implemented locally; apply migration `20260907100000_account_commercial_snapshot.sql` and deploy the new scripts before operational use. The customer connector now invokes `viewplan-account-commercial-sync.ps1` after every successful identity pass, including zero-change incremental runs. It performs a full commercial read and records separate `account_commercial` state.
+
+The [7 September implementation review](./sprint-2c-implementation-review.md) records source evidence, confirmed meanings, current delivery status and rollout checks. Balance uses `qryCustomerOutstandingTotalsAll.outstanding_total`; limit uses `tblCustomer.customer_max_credit`; currency is confirmed GBP. Status-list `allow_order` and `allow_order_dispatch` are distinct explicit source permissions. Sales may take an order while payment is required before dispatch; present this clearly rather than labelling every dispatch restriction as an ordering stop. `credit_amount` is credit on account, not the balance owed.
+
+Audit the exact source fields/query, currency/sign and hold meanings before implementation. Refresh commercial facts even when customer-master `lud` is unchanged; financial/hold changes must not be missed by the customer incremental filter. Map by exact external identity to the canonical Account, preserving CRM-owned data.
+
+ViewPlan remains authoritative for products, production, inventory, orders and logistics; Sales consumes orders and commercial facts from Account. All commercial snapshot fields are read-only in Brewery Ops. Explicit hold/stop is the authoritative sell/stop signal: do not derive holds or clearance from balance versus credit limit. Unknown status is not clearance.
+
+On failed refresh preserve previous successful values and their timestamp, and surface stale/unavailable state. Missing values are not zero or clear hold. Prospects without a ViewPlan mapping retain normal CRM workflow. Snapshot time describes the successful commercial read, not the latest attempted run or page render. See [2C.8 acceptance criteria](./sprint-2c-prospects-interactions-follow-up.md#2c8--viewplan-account-commercialcredit-snapshot).
+
 ## Requirements
 
 - Run from 32-bit Windows PowerShell.

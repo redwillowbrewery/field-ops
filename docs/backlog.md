@@ -2,6 +2,14 @@
 
 This backlog is ordered around the architecture in [`docs/architecture.md`](./architecture.md). Prioritise work that strengthens the canonical Brewery Ops model and reduces direct coupling to ViewPlan/Sellar.
 
+## Current delivery order — 5 September 2026
+
+**Sprint 2C is CURRENT**, including P2.4 and the commercial snapshot below. Sales Ops owns CRM relationship/workflow; ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial source facts. Sales consumes orders/commercial facts from the Account perspective through canonical services.
+
+After Sales, prioritise **Product → Production → Inventory (P7)** before **Order Capture (P4) → Logistics (P5 operational ownership)**. Existing P-number identifiers are retained for references, not as the execution order. Read-only Account order history, tactical container views and discovery may continue without transferring authority. Operational ownership must be explicitly established before downstream order/logistics ownership moves; see [Architecture](./architecture.md).
+
+Sales/Production/Logistics workspaces share canonical data. Users can configure a primary workspace/default view and switch workspaces; preferences are separate from permissions. This is durable design direction, not a requirement to build every workspace in 2C.
+
 ## Priority 0 — architectural correctness
 
 ### P0.1 Audit ViewPlan package semantics
@@ -166,7 +174,7 @@ Acceptance:
 
 ### P2.3 Account Selling Flow
 
-Implementation status: **NEXT — Sprint 2B.**
+Implementation status: **Sales-team field testing — Sprint 2B; Sprint 2C is CURRENT.**
 
 Goal: make Account the fast customer-selling workspace.
 
@@ -191,7 +199,9 @@ Acceptance:
 - Availability and Quick Email reuse the same canonical selling data rather than independently reconstructing business rules;
 - no page-specific pricing/package/availability business logic is added.
 
-### P2.4 Interaction + follow-up workflow
+### P2.4 Prospects, Interaction + follow-up workflow
+
+Implementation status: **CURRENT — Sprint 2C.** Preserve the prospect, reconciliation, Interaction, timeline and Task/Appointment scope in the [2C brief](./sprint-2c-prospects-interactions-follow-up.md).
 
 Goal: make recording useful sales activity quick enough to happen consistently.
 
@@ -250,6 +260,19 @@ Acceptance:
 - confirmed rows create canonical Accounts and optional Contacts using the same rules as the phone form;
 - retries cannot silently create the same batch twice.
 
+### P2.4a ViewPlan Account commercial snapshot — CURRENT Sprint 2C
+
+Confirmed 7 September: the Account balance is the all-unpaid-orders ViewPlan total in GBP. ViewPlan ordering and dispatch permissions remain separate: when ordering is allowed but dispatch is blocked, Sales sees "Can order - payment required before dispatch". An ordering block remains a stop. Neither flag is inferred from balance or credit limit; see [implementation review](./sprint-2c-implementation-review.md).
+
+- Extend the overnight Account sync with balance, credit limit, explicit hold/stop, source and successful snapshot timestamp.
+- ViewPlan owns these facts; Sales reads them prominently on canonical Account. No local editing, hold override or ViewPlan write.
+- Hold is the authoritative sell/stop signal; never derive a credit rule from balance versus limit.
+- Audit exact source mappings and ensure commercial-only changes refresh even if customer-master timestamps do not change.
+- Preserve previous successful facts/timestamp on failure; show stale, missing or unknown state without invented zero values or clearance. Unmapped prospects retain full CRM functionality.
+- Keep adapter semantics out of Account UI and preserve CRM-owned fields/history.
+
+Acceptance and implementation discovery requirements: [2C.8](./sprint-2c-prospects-interactions-follow-up.md#2c8--viewplan-account-commercialcredit-snapshot). This snapshot does not transfer finance/order authority or expand 2C into Order Capture.
+
 ### P2.5 Tactical sales + field workflow
 
 Goal: once the initial push is complete, help sales exploit areas/routes already being worked.
@@ -306,6 +329,8 @@ Use association language, not unsupported causal attribution.
 
 ## Priority 4 — order capture
 
+Gated on accepted Product/Production/Inventory operational ownership (P7). ViewPlan order authority remains until explicitly migrated; a local draft or handoff does not transfer it.
+
 ### P4.1 Lightweight sales order capture
 
 - Start from canonical availability and effective customer price.
@@ -320,6 +345,8 @@ Use association language, not unsupported causal attribution.
 - Availability becomes `physical - allocated - held` when authoritative inputs exist.
 
 ## Priority 5 — returnable container and driver operations
+
+Brewery Ops-owned Logistics is gated on Product/Production/Inventory operational ownership (P7). Read-only trials and Account observations may proceed; delivery/dispatch state remains ViewPlan-authoritative during transition.
 
 ### P5.1 Returns Near Me field trial
 
@@ -404,7 +431,7 @@ Candidate durable attributes:
 
 ## Priority 7 — production and stock module replacement of ViewPlan
 
-This is the strategic migration path, not a near-term clone of ViewPlan.
+This is the first operational ownership programme after Sales: Product → Production → Inventory, ahead of P4 Order Capture and P5 Logistics ownership. Replace bounded authorities deliberately, without cloning ViewPlan wholesale.
 
 ### P7.1 Product/batch production model
 
@@ -467,3 +494,7 @@ When adding a new backlog item, identify:
 8. Whether observations from the workflow should enrich shared account knowledge.
 
 Do not prioritise a shortcut that makes ViewPlan/Sellar harder to replace unless it is explicitly documented as temporary technical debt.
+
+### P2.4b Live decorated price lists — CURRENT Sprint 2C
+
+Implemented; migration applied, app deployment and Sales field pass pending. Generic standard trade prices and revocable Account-specific links reuse canonical effective pricing, package eligibility and availability. Account and Quick Email provide sharing controls; customers need no login. Source authority is unchanged. See [requirements and acceptance](./sprint-2c-live-price-lists.md).

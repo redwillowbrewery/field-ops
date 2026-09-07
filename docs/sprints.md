@@ -163,7 +163,7 @@ See [`sprint-2a-weekly-sales-focus.md`](./sprint-2a-weekly-sales-focus.md) for t
 
 ## Sprint 2B — Account Selling Flow
 
-**Status: NEXT.**
+**Status: Sales-team field testing; review outstanding feedback without treating 2B as the next sprint.**
 
 **Goal:** make the Account the fast customer-selling workspace for both territory and managed-account rhythms.
 
@@ -197,7 +197,13 @@ Acceptance:
 - pricing/package/availability logic is not duplicated in page code;
 - primary actions remain usable on a phone.
 
-## Sprint 2C — Interaction + Follow-up
+## Sprint 2C — Prospects, Interaction + Follow-up and Account Commercial Snapshot
+
+Confirmed 7 September: the Account balance is the all-unpaid-orders ViewPlan total in GBP. ViewPlan ordering and dispatch permissions remain separate: when ordering is allowed but dispatch is blocked, Sales sees "Can order - payment required before dispatch". An ordering block remains a stop. Neither flag is inferred from balance or credit limit; see [implementation review](./sprint-2c-implementation-review.md).
+
+**Status: CURRENT — 5 September 2026.**
+
+The [2C implementation brief](./sprint-2c-prospects-interactions-follow-up.md) is the detailed requirement and acceptance reference. Preserve canonical prospect creation, exact/auditable ViewPlan reconciliation, distinct Interaction/Task/Appointment semantics and existing history. Add the contained overnight Account snapshot: balance, credit limit, explicit hold/stop, source and snapshot timestamp. It is read-only; ViewPlan hold is the authoritative sell/stop signal, with no locally invented balance/limit credit rule. Missing data and failed refresh must remain visibly unknown/stale.
 
 **Goal:** recording useful sales activity is quick enough that it happens consistently, preparing clean operational data for later contact → order intelligence.
 
@@ -212,7 +218,7 @@ Outcomes:
 - visit logging is short and mobile-friendly;
 - creating the next task/follow-up is a natural continuation of logging the interaction;
 - working-list progress can reflect that contact has occurred;
-- avoid building Sprint 3 analytics prematurely, but do not create structures that conflict with the planned canonical `Interaction` direction.
+- avoid building later contact-to-order analytics prematurely, but do not create structures that conflict with the planned canonical `Interaction` direction.
 
 Acceptance:
 
@@ -286,49 +292,30 @@ without needing to understand ViewPlan/Sellar implementation details and without
 
 This workflow also leaves a clean insertion point for future Order Capture: the existing Account → Product Variant + availability + effective price flow can gain **Add to order** rather than creating a separate stock/pricing workflow.
 
-# Sprint 3 — Customer contact → order intelligence
+# Post-Sales delivery sequence — Product → Production → Inventory → Order Capture → Logistics
 
-**Goal:** answer whether calls/visits/emails are associated with subsequent customer orders.
+This replaces the former Sprint 3/4/5/6+ delivery order. Future sprint numbers are to be assigned during planning. ViewPlan retains operational authority until each bounded replacement is accepted. Establish Product, Production and Inventory operational ownership before Brewery Ops-owned Order Capture or Logistics. Read-only Account order consumption and supporting sales analysis do not transfer order authority.
 
-Primary backlog: sales/orders connector and interaction reporting.
+## First post-Sales work — Brewery Ops operational core
 
-Suggested branches:
+After the CRM/field workflows are stable, begin replacing ViewPlan bounded authorities deliberately rather than cloning ViewPlan wholesale.
 
-- `feature/order-history-sync`
-- `feature/canonical-interactions`
-- `feature/sales-effectiveness-reporting`
+Likely sequence:
 
-Outcomes:
+1. Product + Batch/Gyle production model.
+2. Packaging events and canonical packaged stock.
+3. Stock movement ledger and locations.
+4. Allocation/holds.
+5. Brewery Ops-derived availability.
+6. Order authority migration.
+7. Logistics authority migration.
+8. ViewPlan adapter retirement one boundary at a time.
 
-- automated incremental ViewPlan order/order-line history sync;
-- canonical Interaction captures meaningful customer contact consistently;
-- reporting shows order within 7/14/30 days, time-to-next-order and revenue after contact;
-- analysis supports salesperson, interaction type and relationship-status segmentation;
-- reporting distinguishes association from causation.
+Each of these should become its own sprint/epic once requirements are sufficiently understood.
 
-**Sprint exit:** management can use Brewery Ops to evaluate contact activity against commercial outcomes without manual exports.
+## Later — Lightweight order capture
 
-# Sprint 4 — Driver / returnables operational slice
-
-**Goal:** turn the successful Returns Near Me prototype into a role-specific dray workflow informed by field trial feedback.
-
-Suggested branches:
-
-- `feature/driver-stop-view`
-- `feature/account-observations`
-- `feature/returnable-priority`
-
-Outcomes:
-
-- driver sees only operationally relevant stop information: location, delivery/collection window, empties, call-ahead/access notes and primary actions;
-- driver can capture lightweight observations at the stop;
-- observations feed shared Account knowledge;
-- durable observations can later be promoted into structured account attributes;
-- return collection suggestions account for count/age/detour once field evidence supports the policy.
-
-**Sprint exit:** dray team can use a simple role-specific workflow without needing the sales CRM interface.
-
-# Sprint 5 — Lightweight order capture
+Dependency: Product/Production/Inventory operational ownership must be established first, even for the initial order-intent/handoff slice. ViewPlan owns operational orders until a separate explicit migration is accepted.
 
 **Goal:** allow sales to turn current availability + effective customer price into a safe order intent.
 
@@ -349,21 +336,49 @@ Outcomes:
 
 **Sprint exit:** a salesperson can capture a useful order without creating a second inconsistent stock/pricing implementation.
 
-# Sprint 6+ — Brewery Ops operational core
+## Later — Driver / returnables operational slice
 
-After the CRM/field workflows are stable, begin replacing ViewPlan bounded authorities deliberately rather than cloning ViewPlan wholesale.
+Dependency: Product/Production/Inventory operational ownership must be established before Brewery Ops-owned Logistics. Read-only field trials and shared Account observations can inform this future slice without transferring dispatch/delivery authority.
 
-Likely sequence:
+**Goal:** turn the successful Returns Near Me prototype into a role-specific dray workflow informed by field trial feedback.
 
-1. Product + Batch/Gyle production model.
-2. Packaging events and canonical packaged stock.
-3. Stock movement ledger and locations.
-4. Allocation/holds.
-5. Brewery Ops-derived availability.
-6. Order authority migration.
-7. ViewPlan adapter retirement one boundary at a time.
+Suggested branches:
 
-Each of these should become its own sprint/epic once requirements are sufficiently understood.
+- `feature/driver-stop-view`
+- `feature/account-observations`
+- `feature/returnable-priority`
+
+Outcomes:
+
+- driver sees only operationally relevant stop information: location, delivery/collection window, empties, call-ahead/access notes and primary actions;
+- driver can capture lightweight observations at the stop;
+- observations feed shared Account knowledge;
+- durable observations can later be promoted into structured account attributes;
+- return collection suggestions account for count/age/detour once field evidence supports the policy.
+
+**Sprint exit:** dray team can use a simple role-specific workflow without needing the sales CRM interface.
+
+## Supporting Sales work — Customer contact → order intelligence
+
+**Goal:** answer whether calls/visits/emails are associated with subsequent customer orders.
+
+Primary backlog: sales/orders connector and interaction reporting.
+
+Suggested branches:
+
+- `feature/order-history-sync`
+- `feature/canonical-interactions`
+- `feature/sales-effectiveness-reporting`
+
+Outcomes:
+
+- automated incremental ViewPlan order/order-line history sync;
+- canonical Interaction captures meaningful customer contact consistently;
+- reporting shows order within 7/14/30 days, time-to-next-order and revenue after contact;
+- analysis supports salesperson, interaction type and relationship-status segmentation;
+- reporting distinguishes association from causation.
+
+**Sprint exit:** management can use Brewery Ops to evaluate contact activity against commercial outcomes without manual exports.
 
 ---
 
@@ -388,4 +403,5 @@ At the end of each sprint:
 
 ## Current recommendation
 
-**Sprint 2A is complete. Proceed with Sprint 2B — Account Selling Flow.** Base 2B on the current `main` implementation: simplify the Account action hierarchy and connect the existing canonical Availability + effective pricing flow to Quick Email without duplicating pricing, package or availability logic.
+**Sprint 2C is CURRENT.** Preserve its existing prospect/Interaction/follow-up scope and deliver the contained ViewPlan commercial snapshot. Review remaining 2B field feedback without reopening its scope. After Sales, prioritise Product → Production → Inventory before Order Capture and Logistics. Configurable primary/default Sales, Production and Logistics workspaces remain switchable views over canonical data, separate from permissions; see [Architecture](./architecture.md).
+Sprint 2C also includes [live decorated price lists](./sprint-2c-live-price-lists.md): a generic standard-price URL and revocable Account-price links, shared from Account and Quick Email. This is read-only Sales presentation, with no ordering or payment capture.

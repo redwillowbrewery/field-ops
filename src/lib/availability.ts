@@ -7,12 +7,12 @@ export type AvailabilityItem={variantId:string;productId:string;productName:stri
 export type AvailabilityResult={items:AvailabilityItem[];observedAt:string|null;lastRefreshError:string|null};
 
 export async function getAccountAvailability(db:SupabaseClient,preference:AccountContainerPreference):Promise<AvailabilityResult>{
- const {data,error}=await db.from("availability_snapshots").select("available_quantity,source_system,source_observed_at,refreshed_at,variant:product_variants!inner(id,package_type,broad_format,allow_sale,product:products!inner(id,name,presentation:product_presentations(description,image_url,hero_image_url,abv,gluten_free,vegan,lactose_free)),package:packages!inner(id,name,broad_format,package_system,lifecycle,procurement_mode))").gt("available_quantity",0);
+ const {data,error}=await db.from("availability_snapshots").select("available_quantity,source_system,source_observed_at,refreshed_at,variant:product_variants!inner(id,package_type,broad_format,allow_sale,product:products!inner(id,name,presentation:product_presentations(description,image_url,hero_image_url,abv,gluten_free,vegan,lactose_free)),package:packages!inner(id,name,broad_format,package_system,capacity_litres,lifecycle,procurement_mode))").gt("available_quantity",0);
  if(error)throw error;
  const items:AvailabilityItem[]=[];
  for(const row of (data||[]) as unknown as JoinedRow[]){const variant=row.variant;const product=single(variant?.product);const pkg=single(variant?.package);if(!variant?.allow_sale||!product||!pkg||!packageAllowedForAccount(pkg,preference))continue;items.push({variantId:variant.id,productId:product.id,productName:product.name,packageType:variant.package_type,broadFormat:pkg.broad_format,package:pkg,availableQuantity:Number(row.available_quantity),sourceSystem:row.source_system,observedAt:row.source_observed_at,refreshedAt:row.refreshed_at,presentation:single(product.presentation)});}
  items.sort((a,b)=>a.productName.localeCompare(b.productName)||a.package.name.localeCompare(b.package.name));
- const observedAt=items.map(i=>i.observedAt).sort().at(-1)||null;
+ const observedAt=items.map(i=>i.observedAt).sort().at(0)||null;
  const {data:state}=await db.from("connector_sync_state").select("last_error").eq("source_system","sellar").eq("module","availability").maybeSingle();
  return{items,observedAt,lastRefreshError:state?.last_error||null};
 }

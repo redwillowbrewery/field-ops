@@ -19,5 +19,5 @@ Before changing domain models, integrations, availability, pricing, product/pack
 
 Key rules:
 
-- **Brewery Ops owns the business truth; ViewPlan, Sellar and other external systems are adapters.** Application features should consume canonical Brewery Ops concepts/services and must not embed external-system semantics where a canonical rule belongs.
+- **Brewery Ops owns canonical application semantics and Sales Ops CRM relationship/workflow; ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial facts during transition.** Establish Product → Production → Inventory operational ownership before Brewery Ops-owned Order Capture or Logistics. External systems integrate through adapters. Application features should consume canonical Brewery Ops concepts/services and must not embed external-system semantics where a canonical rule belongs.
 - **Complete the business outcome, not the screen.** Minimise module switching and repeated data entry; carry context through the workflow and derive downstream tasks/actions from canonical state where possible.

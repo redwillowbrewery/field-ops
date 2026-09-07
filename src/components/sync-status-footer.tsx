@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type SyncModule = {
   module: string;
@@ -10,10 +11,13 @@ type SyncModule = {
 };
 
 export function SyncStatusFooter() {
+  const pathname = usePathname();
+  const publicPriceList = pathname === "/price-list" || pathname.startsWith("/price-list/");
   const [modules, setModules] = useState<SyncModule[]>([]);
   const [loadedAt, setLoadedAt] = useState<number | null>(null);
 
   useEffect(() => {
+    if (publicPriceList) return;
     let cancelled = false;
     fetch("/api/sync-status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { modules: [] }))
@@ -25,9 +29,9 @@ export function SyncStatusFooter() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [publicPriceList]);
 
-  if (!modules.length) return null;
+  if (publicPriceList || !modules.length) return null;
 
   return (
     <footer className="border-t border-slate-200 bg-white/80 px-4 py-2 text-[11px] text-slate-500 sm:px-6">

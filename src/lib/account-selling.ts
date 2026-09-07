@@ -20,7 +20,15 @@ export function composeAccountSellingRows(availability:AvailabilityResult,prices
 }
 function toPrice(value:number|string|null|undefined){if(value==null)return null;const number=Number(value);return Number.isFinite(number)?number:null}
 
-async function getEffectivePrices(db:SupabaseClient,accountId:string,variantIds:string[]){
+/** A null Account invokes the same canonical policy's standard WHOLESALE_1 base,
+ * with no account-specific list, discount, package rule or inherited override. */
+export async function getGenericSellingData(db:SupabaseClient):Promise<AccountSellingResult>{
+ const availability=await getAccountAvailability(db,"any");
+ const prices=await getEffectivePrices(db,null,availability.items.map(item=>item.variantId));
+ return composeAccountSellingRows(availability,prices);
+}
+
+async function getEffectivePrices(db:SupabaseClient,accountId:string|null,variantIds:string[]){
  if(!variantIds.length)return [];
  const {data,error}=await db.rpc("customer_effective_prices_for_variants",{p_account_id:accountId,p_product_variant_ids:variantIds});
  if(error)throw error;

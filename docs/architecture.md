@@ -10,6 +10,14 @@ This document defines the architectural principles and core business concepts fo
 
 Brewery Ops must model brewery business concepts in its own canonical data model. ViewPlan, Sellar and future systems translate data into or out of that model; application features must not depend directly on the quirks, names or identifiers of an external system.
 
+### Transitional ownership — agreed 5 September 2026
+
+Sprint 2C is **CURRENT**. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+
+The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
+
+After the Sales work, establish **Product → Production → Inventory** operational ownership before Brewery Ops-owned **Order Capture → Logistics**. Ownership must be explicitly accepted for the underlying product, batch/packaging and stock/provenance services before order commitment, allocation, dispatch or logistics authority moves. Read-only Account order history and tactical sales/container views can continue during transition. ViewPlan remains read-only from Brewery Ops.
+
 ## 2. Architectural principles
 
 ### 2.1 Canonical concepts first
@@ -19,7 +27,7 @@ Model the business concept before modelling an integration.
 Every Brewery Ops entity has its own stable ID. External identifiers attach through explicit mappings.
 
 ### 2.3 External systems have bounded authority
-ViewPlan currently supplies much brewery master/operational data; Sellar supplies channel observations; Brewery Ops owns the canonical business semantics and workflow.
+ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial source facts during transition. Sellar supplies channel observations. Brewery Ops owns canonical application semantics and Sales Ops CRM relationship/workflow; operational authority migrates only through explicitly accepted bounded replacements.
 
 ### 2.4 Application features consume Brewery Ops services/data
 Screens ask canonical questions rather than independently interpreting ViewPlan or Sellar.
@@ -48,6 +56,8 @@ Prioritise speed, clarity and confidence. Common operational actions should take
 ### 2.12 Role-centric views over one shared model
 Driver, sales, bar, production and warehouse views are lenses over shared canonical data, not separate systems.
 
+Sales, Production and Logistics workspaces are views over the same canonical data, not separate departmental records. Each user can configure a primary workspace/default view and switch workspaces as needed. Workspace preference controls navigation and presentation; it is separate from permissions and never grants access or bypasses authorisation. Establish this principle now; delivering all specialist workspaces or a new permission system is not Sprint 2C scope.
+
 ### 2.13 Operational observations feed shared account knowledge
 Low-friction observations captured in context should enrich shared Account knowledge and, where durable, be promotable into structured attributes.
 
@@ -55,6 +65,11 @@ Low-friction observations captured in context should enrich shared Account knowl
 
 ### Account
 A business/customer/prospect we have a commercial relationship with.
+
+### Account commercial snapshot
+
+Confirmed 7 September: the Account balance is the all-unpaid-orders ViewPlan total in GBP. ViewPlan ordering and dispatch permissions remain separate: when ordering is allowed but dispatch is blocked, Sales sees "Can order - payment required before dispatch". An ordering block remains a stop. Neither flag is inferred from balance or credit limit; see [implementation review](./sprint-2c-implementation-review.md).
+ViewPlan supplies balance, credit limit and explicit hold/stop, with source and successful snapshot timestamp, through the overnight Account sync. These facts are read-only in Brewery Ops. Explicit hold/stop is the authoritative sell/stop signal; balance versus limit does not create or clear a hold. Preserve unknown/stale states and previous successful snapshots on refresh failure. See [Sprint 2C requirement 2C.8](./sprint-2c-prospects-interactions-follow-up.md#2c8--viewplan-account-commercialcredit-snapshot) for the refresh and acceptance contract.
 
 ### Contact
 A person associated with an Account.
@@ -324,3 +339,7 @@ Before adding/changing an operational concept ask:
 9. Is a sales unit actually an assembly of lower-level packaged units/components that should remain representable separately?
 
 Avoid page-specific source-system logic, fuzzy commercial mappings, package-name lifecycle tests, duplicated business rules and loss of useful provenance.
+
+## Public Sales price-list presentation
+
+Generic and Account-specific live decorated lists consume canonical availability, effective pricing and Package labels/eligibility. They do not establish new product, inventory or ordering authority. The generic route uses the standard-price policy with no Account. Customer routes resolve a revocable opaque bearer token server-side; public output is limited to the Account display name and selling presentation. CRM records and commercial/credit snapshots remain private. Link management follows staff Account access; workspace preferences never grant permission. See [Sprint 2C live lists](./sprint-2c-live-price-lists.md).

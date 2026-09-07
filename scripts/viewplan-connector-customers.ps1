@@ -179,3 +179,7 @@ catch {
     try{if($runId){Invoke-SupaPatch "connector_sync_runs?id=eq.$runId" @{status="failed";notes=$message;completed_at=$failedAt.ToString("o")}|Out-Null}}catch{}
     throw
 }
+
+# Always refresh commercial facts after the customer identity pass, including
+# incremental runs with zero changed customer-master rows. Keep its state separate.
+& (Join-Path $PSScriptRoot 'viewplan-account-commercial-sync.ps1') -SupabaseUrl $SupabaseUrl -ServiceRoleKey $ServiceRoleKey

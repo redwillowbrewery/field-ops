@@ -4,6 +4,20 @@ Status: **Canonical product/workflow reference**
 
 This document complements `docs/architecture.md`. It defines how Brewery Ops should turn canonical business concepts into low-friction, end-to-end operational workflows.
 
+## Transitional scope and workspaces
+
+### Transitional ownership — agreed 5 September 2026
+
+Sprint 2C is **CURRENT**. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+
+The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
+
+After the Sales work, establish **Product → Production → Inventory** operational ownership before Brewery Ops-owned **Order Capture → Logistics**. Ownership must be explicitly accepted for the underlying product, batch/packaging and stock/provenance services before order commitment, allocation, dispatch or logistics authority moves. Read-only Account order history and tactical sales/container views can continue during transition. ViewPlan remains read-only from Brewery Ops.
+
+Sales, Production and Logistics workspaces are views over the same canonical data, not separate departmental records. Each user can configure a primary workspace/default view and switch workspaces as needed. Workspace preference controls navigation and presentation; it is separate from permissions and never grants access or bypasses authorisation. Establish this principle now; delivering all specialist workspaces or a new permission system is not Sprint 2C scope.
+
+The order orchestration examples below describe target workflows after the ownership gate, not authorisation to implement Order Capture or Logistics in Sprint 2C. During transition, bring ViewPlan order/commercial facts into the Account view while Sales owns relationship and follow-up work.
+
 ## 1. North star: complete the business outcome, not the screen
 
 > **A user should be able to complete a real business task with minimal navigation, re-entry or module switching.**
@@ -260,3 +274,7 @@ Before considering a cross-functional feature complete, ask:
 Brewery Ops should evolve as a **full-stack operational workflow system**, not a collection of departmental applications.
 
 Modules remain useful boundaries for architecture, permissions and specialist work. They should not become navigation boundaries that users are forced to traverse to complete ordinary business tasks.
+
+## Live price-list sharing — current Sprint 2C
+
+From Account or Quick Email, Sales can copy a live customer-price link or the generic standard-price link. Reuse, replace and revoke customer links within the same workflow. Customers open without a login, review decorated current availability and contact Sales to confirm an order. Generic links are explicitly labelled as standard prices. Email preparation remains distinct from sending; no Order Capture is introduced. See [live-list requirements](./sprint-2c-live-price-lists.md).

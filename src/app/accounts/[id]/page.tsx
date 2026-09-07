@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AccountCommercialSnapshot } from "@/components/account-commercial-snapshot";
+import { getAccountCommercialSnapshot } from "@/lib/account-commercial";
 import { notFound } from "next/navigation";
 import { AccountTimeline } from "@/components/account-timeline";
 import { AccountContactAction } from "@/components/account-contact-action";
@@ -32,6 +34,7 @@ export default async function AccountDetailPage({
     { data: latestOrderRows },
     { data: containers },
     selling,
+    commercial,
   ] = await Promise.all([
     supabase
       .from("visits")
@@ -81,6 +84,7 @@ export default async function AccountDetailPage({
       id,
       (account.container_preference || "any") as AccountContainerPreference,
     ),
+    getAccountCommercialSnapshot(supabase, id, account.brewery_customer_id ?? null),
   ]);
   const territory = Array.isArray(account.territory)
     ? account.territory[0]
@@ -203,6 +207,7 @@ export default async function AccountDetailPage({
         </div>
       </header>
       <main className="mx-auto grid max-w-5xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="lg:col-span-2"><AccountCommercialSnapshot result={commercial} /></div>
         <div className="space-y-4">
           {account.brewery_ops_reference ? (
             <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-950">
@@ -416,8 +421,9 @@ export default async function AccountDetailPage({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               More selling tools
             </p>
-            <div className="mt-3 flex gap-3 text-sm font-semibold">
+            <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold">
               <Link href={`/accounts/${id}/price-list`}>Price list</Link>
+              <Link href={`/accounts/${id}/share-price-list`}>Share live price list</Link>
               <Link href={`/accounts/${id}/quick-price-email`}>
                 Email all availability
               </Link>
