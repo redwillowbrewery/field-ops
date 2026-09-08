@@ -539,3 +539,7 @@ Implemented; migration applied, app deployment and Sales field pass pending. Gen
 ### Next delivery slice — scoped 8 September 2026
 
 P7.1a is promoted to the [Sprint 3 Take Off Planning proposal](./sprint-3-take-off-planning.md). ViewPlan supplies in-tank facts and its brew plan; Brewery Ops adds Sales packaging requirements and Production review. Take Off Planning is the sole workbook reference; its second tab is superseded. P7.1b materials requirements follows this slice. Source audit and loss/unit confirmation precede implementation.
+
+### Sprint 3 refinement — quantity grid and fermentation estimate
+
+Implemented on feature/take-off-quantity-grid: per-package quantity boxes, live carbonation groups/remaining litres before losses, atomic request updates and ViewPlan-derived estimated packaging dates. Product/Production/Inventory ownership, material requirements and packaging execution remain follow-on work. Application release and updated server-connector verification are pending; see Sprint 3 implementation review.

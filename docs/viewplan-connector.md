@@ -104,3 +104,7 @@ The same connector framework will be extended to:
 ## Sprint 3 — Take Off Planning
 
 The take-off module reads ViewPlan plans, tank contents and existing take-off quantities; it never writes ViewPlan. See [installation, cadence and validation](./sprint-3-implementation-review.md). Copy the updated runner and both take-off scripts together. Head Brewer approval is enforced in Brewery Ops; source sync does not overwrite Sales requests.
+
+### Take Off fermentation duration
+
+The updated source helper also selects tblBrew_Type.incubation_duration_days for planned and actual brews and projects it as packaging_days. The audited ViewPlan qryTakeOffPlanBasic uses this duration plus task_due_date for its packaging estimate; the connector still uses explicit read-only SELECTs. Blank duration remains null, never zero. The complete refresh updates this value even if customer/product master high-water marks do not change. Copy the updated viewplan-take-off-source.ps1 with the runner and sync script, then run .\viewplan-connector.ps1 -Module take-off. Migration 20260908160000_take_off_grid.sql is applied. Old connector payloads remain compatible and leave estimates unknown. Invalid durations fail the whole refresh and retain the last successful snapshot.

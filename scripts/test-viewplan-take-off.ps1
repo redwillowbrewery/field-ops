@@ -16,11 +16,12 @@ Write-Host 'Take Off source parsing tests passed'
 
 # Projection tests use fixtures only; no ViewPlan session or application writes.
 $plan=[pscustomobject]@{task_id=4590;brew_type_id=2005;brew_product_name='Test beer';is_deleted=$false;task_complete=$true;task_closed=$true;task_brew_register_id=4184;task_due_date='2026-09-04';parsed_plan=(Convert-TakeOffPlanArguments '2100|1|||N')}
-$batch=[pscustomobject]@{brew_register_id=4184;brew_type_id=2005;brew_product_name='Test beer';brew_no='G1';brew_date='2026-09-04';is_void=$false;is_deleted=$false}
+$batch=[pscustomobject]@{brew_register_id=4184;brew_type_id=2005;brew_product_name='Test beer';incubation_duration_days=12;brew_no='G1';brew_date='2026-09-04';is_void=$false;is_deleted=$false}
 $tank=[pscustomobject]@{tank_id=1;brew_register_id=4184;tank_label_text='Tomorrows Brew';is_sys=$false;is_available=$true;current_level=2100}
 $snapshot=[pscustomobject]@{plans=@($plan);batches=@($batch);tanks=@($tank);source_take_off=@()}
 $rows=@(Convert-ViewPlanTakeOffProjection $snapshot)
 Assert ($rows[0].source_link_key -eq 'batch:4184') 'Explicit lineage missing'
+Assert ($rows[0].packaging_days -eq $null -and $rows[1].packaging_days -eq 12) 'Fermentation duration mapping lost null or value'
 Assert ($rows[1].phase -eq 'staging') 'Staging counted as physical FV'
 $tank.tank_id=3;$tank.tank_label_text='FV2'
 $rows=@(Convert-ViewPlanTakeOffProjection $snapshot)

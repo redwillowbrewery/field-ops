@@ -66,3 +66,11 @@ The exported projection contained 1,325 rows and five explicit plan-to-batch lin
 ## First live sync verified — 8 September 2026
 
 The ViewPlan server connector successfully wrote 1,325 subjects at 2026-09-08T11:59:08.299017Z (12:59 UK time). Database verification confirms the row count and no recorded sync error. All five conflicting plans remain unresolved and separate. Batch 4189 is correctly classified as staging in Tomorrows Brew, with 2,100 litres. This supersedes earlier pending first-server-run notes. App deployment, real-user source/UI comparison and request/approval field acceptance remain outstanding.
+
+## Quantity grid and estimated packaging — 8 September 2026
+
+Implemented on feature/take-off-quantity-grid; not deployed. Migration 20260908160000_take_off_grid.sql is applied to the linked database. The grid saves all changed quantities atomically, preserves other owners and untouched approvals, rejects stale/repeated forms and supports zero-to-withdraw. Detailed existing requests and Head Brewer review remain available. Live totals group cask/pin separately from keg/can and show remaining beer before losses; approved totals retain explicit allowance calculations.
+
+The audited tblBrew_Type.incubation_duration_days is included for both planned and actual brews. Dates are estimates derived from source brew date plus calendar days, not release/stock promises. Unknown values stay unknown. Update the three-file connector bundle on the ViewPlan server and run take-off to populate them; no Access source query was executed on the dev box.
+
+Validation: production build, focused lint, isolated database workflow tests (atomic rollback, duplicate-submit protection, ownership, approval preservation, withdrawal, null/invalid fermentation data), calculation and source-projection tests. Live Sales/Head Brewer acceptance and comparison of the new date fields with ViewPlan remain pending.

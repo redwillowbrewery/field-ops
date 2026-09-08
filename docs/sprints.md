@@ -411,3 +411,7 @@ At the end of each sprint:
 
 **Sprint 2C is CURRENT.** Preserve its existing prospect/Interaction/follow-up scope and deliver the contained ViewPlan commercial snapshot. Review remaining 2B field feedback without reopening its scope. After Sales, prioritise Product → Production → Inventory before Order Capture and Logistics. Configurable primary/default Sales, Production and Logistics workspaces remain switchable views over canonical data, separate from permissions; see [Architecture](./architecture.md).
 Sprint 2C also includes [live decorated price lists](./sprint-2c-live-price-lists.md): a generic standard-price URL and revocable Account-price links, shared from Account and Quick Email. This is read-only Sales presentation, with no ordering or payment capture.
+
+### Sprint 3 delivery refinement — 8 September 2026
+
+feature/take-off-quantity-grid adds the low-friction packaging quantity grid and product fermentation-based packaging estimates. The database migration is applied; application changes are not yet deployed. Keep source authority, Head Brewer approvals and completed Sprint 2C work intact. See the Sprint 3 implementation review for remaining field acceptance.

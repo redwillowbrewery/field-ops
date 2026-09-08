@@ -25,3 +25,19 @@ test('exact source link survives transfer while similarly named plans remain dis
  assert.equal(rootOf(p,[p,b]),'batch');
  assert.equal(rootOf({id:'other',source_key:'plan:4591'},[p,b]),'other');
 });
+
+test('carbonation totals, case capacities, unknown data and over-requesting',()=>{
+ const packages=[{id:'c',capacity_litres:40.9,broad_format:'cask'},{id:'k',capacity_litres:30,broad_format:'keg'},{id:'can',capacity_litres:5.28,broad_format:'can'}];
+ const s=compiled.exports.requestedSplit([{package_id:'c',quantity:2},{package_id:'k',quantity:3},{package_id:'can',quantity:10}],packages,200);
+ assert.equal(s.nonCarbonated,81.8);assert.equal(s.carbonated,142.8);assert.ok(Math.abs(s.remaining+24.6)<1e-9);
+ assert.equal(compiled.exports.requestedSplit([{package_id:'missing',quantity:1}],packages,200).remaining,null);
+ assert.equal(compiled.exports.requestedSplit([],packages,null).remaining,null);
+ assert.equal(compiled.exports.packagingGroup({broad_format:'bottle'}),'unclassified');
+});
+test('packaging dates use calendar days, preserve unknown and allow explicit zero',()=>{
+ const date=compiled.exports.estimatedPackagingDate;
+ assert.equal(date('2026-09-25',10),'2026-10-05');
+ assert.equal(date('2026-09-08',0),'2026-09-08');
+ assert.equal(date('2026-09-08',null),null);assert.equal(date(null,10),null);
+ assert.equal(date('2026-09-08',-1),null);
+});

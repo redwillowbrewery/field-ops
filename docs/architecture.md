@@ -347,3 +347,7 @@ Generic and Account-specific live decorated lists consume canonical availability
 ## Sprint 3 planning boundary — 8 September 2026
 
 Take Off Planning is a coordination view over ViewPlan-owned brew plans, batches and tank observations. Canonical local subjects have explicit source identities; plans resolve to batches through audited lineage or a Head Brewer-confirmed association. Tank 1 is the confirmed staging vessel, not physical FV occupancy. Sales requirements and Head Brewer decisions are separate local records; source changes invalidate the decision context without erasing history. This does not transfer stock, production execution or order authority. See [Sprint 3 implementation](./sprint-3-implementation-review.md).
+
+### Take Off planning estimates — 8 September 2026
+
+Take Off exposes canonical packaging_days on the source planning/batch snapshot, supplied by the ViewPlan adapter from product fermentation duration. The shared planning helper derives an estimated packaging date from brew date; null is unknown. This observation does not transfer Product ownership or establish batch release readiness. Canonical Package broad_format and capacity_litres drive requested volume groups: cask is non-carbonated, keg/can carbonated, other formats unclassified. These request scenarios share one source volume and remain separate from approved beer input with explicit losses.

@@ -19,6 +19,8 @@ insert into product_variants values('${product}','${pkg}',true);
 grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;
 `);
 await db.exec(readFileSync(new URL('../supabase/migrations/20260908120000_take_off_planning.sql',import.meta.url),'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20260908140000_take_off_link_conflicts.sql',import.meta.url),'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20260908160000_take_off_grid.sql',import.meta.url),'utf8'));
 let stamp=Date.now()-60000;
 const plan={source_key:'plan:4590',kind:'plan',source_product_id:'2005',product_name:'Beer',source_link_key:null,brew_date:'2026-09-08',gyle:null,phase:'planned',volume_litres:2100,vessels:[],source_take_off:[]};
 const batch={...plan,source_key:'batch:4184',kind:'batch',gyle:'G1',phase:'staging'};
@@ -63,4 +65,35 @@ await asUser(sales);
 await db.query('select save_take_off_request($1,$2,10,$3,$4,$5,3,true)',[s.id,pkg,'2026-09-20','withdrawn',id]);
 assert.equal((await db.query('select withdrawn from take_off_requests where id=$1',[id])).rows[0].withdrawn,true);
 console.log('Take Off database tests passed: source rollback, lineage, null-safe contexts, concurrency, roles, invalidation, failed refresh and withdrawal.');
+
+await db.exec('reset role');
+await sync([{...plan,packaging_days:12},batch]);
+assert.equal((await db.query("select packaging_days from take_off_subjects where id=$1",[s.id])).rows[0].packaging_days,12);
+await assert.rejects(sync([{...plan,packaging_days:-1},batch]));
+assert.equal((await db.query("select packaging_days from take_off_subjects where id=$1",[s.id])).rows[0].packaging_days,12);
+await asUser(sales);
+async function context(){return (await db.query('select take_off_context($1) source,take_off_my_request_context($1) requests',[s.id])).rows[0];}
+async function grid(items,ctx=undefined){ctx??=await context();return db.query('select save_take_off_grid($1,$2,$3,$4::jsonb)',[s.id,ctx.source,ctx.requests,JSON.stringify(items)]);}
+const item={package_id:pkg,quantity:5,required_by:'2026-09-25',notes:'grid'};
+const before=await context();
+await grid([item],before);
+await assert.rejects(grid([item],before)); // repeated form cannot create duplicates
+let saved=(await db.query('select * from take_off_requests where not withdrawn and owner_id=$1',[sales])).rows[0];
+await asUser(brewer);
+await db.query('select approve_take_off_request($1,$2,take_off_context($3),5,$4,0,$5)',[saved.id,saved.revision,s.id,'2026-09-25','agreed']);
+await asUser(sales);
+saved=(await db.query('select * from take_off_requests where id=$1',[saved.id])).rows[0];
+await grid([{...item,id:saved.id,revision:saved.revision}]);
+assert.equal((await db.query('select approved_quantity from take_off_requests where id=$1',[saved.id])).rows[0].approved_quantity,5);
+await assert.rejects(grid([{...item,id:saved.id,revision:saved.revision,quantity:8},{...item,package_id:'00000000-0000-0000-0000-000000000099'}]));
+assert.equal((await db.query('select quantity from take_off_requests where id=$1',[saved.id])).rows[0].quantity,5);
+await asUser(brewer);
+await assert.rejects(grid([{...item,id:saved.id,revision:saved.revision,quantity:8}]));
+await asUser(sales);
+await grid([{...item,id:saved.id,revision:saved.revision,quantity:0}]);
+assert.equal((await db.query('select withdrawn from take_off_requests where id=$1',[saved.id])).rows[0].withdrawn,true);
+await db.exec('reset role');
+await sync([plan,batch]);
+assert.equal((await db.query("select packaging_days from take_off_subjects where id=$1",[s.id])).rows[0].packaging_days,null);
+console.log('Grid tests passed: atomic rollback, double-submit protection, ownership, approval preservation, withdrawal, fermentation null and invalid refresh rollback.');
 await db.close();

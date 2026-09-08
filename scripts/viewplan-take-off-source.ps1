@@ -36,7 +36,7 @@ function Get-ViewPlanTakeOffSnapshot($db) {
     $plans=@(Read-TakeOffSnapshot $db @'
 SELECT t.task_id,t.task_object_id AS brew_type_id,t.task_due_date,
 t.task_complete,t.task_closed,t.is_deleted,t.task_brew_register_id,
-t.task_object_list,t.updated_date,b.brew_product_name
+t.task_object_list,t.updated_date,b.brew_product_name,b.incubation_duration_days
 FROM (tblTasks AS t INNER JOIN tblTask_Type_List AS tt ON t.task_type_id=tt.task_type_id)
 LEFT JOIN tblBrew_Type AS b ON t.task_object_id=b.brew_type_id
 WHERE tt.internal_id=2 ORDER BY t.task_id
@@ -61,7 +61,7 @@ ORDER BY p.take_off_plan_id
 '@)
     $batches=@(Read-TakeOffSnapshot $db @"
 SELECT b.brew_register_id,b.brew_type_id,b.brew_no,b.brew_date,b.brew_quantity,
-b.is_void,b.is_deleted,p.brew_product_name
+b.is_void,b.is_deleted,p.brew_product_name,p.incubation_duration_days
 FROM tblBrew_Register AS b LEFT JOIN tblBrew_Type AS p ON b.brew_type_id=p.brew_type_id
 WHERE b.brew_register_id IN (SELECT brew_register_id FROM tblTank_List WHERE brew_register_id>0)
 OR b.brew_register_id IN (SELECT task_brew_register_id FROM tblTasks WHERE task_brew_register_id>0)
@@ -84,7 +84,7 @@ function Convert-ViewPlanTakeOffProjection($snapshot) {
         $sourceTakeOff=@($snapshot.source_take_off | Where-Object {$_.task_id -eq $p.task_id -and $_.is_deleted -ne $true})
         $rows.Add([pscustomobject]@{
             source_key='plan:'+ $p.task_id;kind='plan';source_product_id=[string]$p.brew_type_id
-            product_name=$p.brew_product_name;source_link_key=$link
+            product_name=$p.brew_product_name;source_link_key=$link;packaging_days=$p.incubation_duration_days
             brew_date=if($p.task_due_date){([string]$p.task_due_date).Substring(0,10)}else{$null}
             gyle=$p.parsed_plan.planned_gyle;phase=$phase;volume_litres=$p.parsed_plan.planned_litres
             vessels=@();source_take_off=$sourceTakeOff
@@ -102,7 +102,7 @@ function Convert-ViewPlanTakeOffProjection($snapshot) {
         }
         $rows.Add([pscustomobject]@{
             source_key='batch:'+ $b.brew_register_id;kind='batch';source_product_id=[string]$b.brew_type_id
-            product_name=$b.brew_product_name;source_link_key=$null
+            product_name=$b.brew_product_name;source_link_key=$null;packaging_days=$b.incubation_duration_days
             brew_date=if($b.brew_date){([string]$b.brew_date).Substring(0,10)}else{$null}
             gyle=[string]$b.brew_no;phase=$phase;volume_litres=$volume;vessels=$vessels;source_take_off=@()
         })

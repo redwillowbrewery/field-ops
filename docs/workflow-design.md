@@ -282,3 +282,7 @@ From Account or Quick Email, Sales can copy a live customer-price link or the ge
 ## Shared Take Off workflow — Sprint 3
 
 Sales opens Take Off Planning from the Sales workspace, finds a planned/staging/in-tank beer and records package units and a required date. The Head Brewer (currently toby@redwillowbrewery.com) reviews the requirement and records agreed units, date, an explicit loss allowance and constraints. Both teams see the split, outstanding requests and source changes. The task retains its context when ViewPlan moves the batch between vessels. Source take-off quantities remain separately labelled to avoid double-counting. The permission is enforced server-side and is independent of workspace choice.
+
+### Take Off quantity entry — 8 September 2026
+
+Sales enters packaging units in a single grid while seeing live carbonated/non-carbonated litre requirements and remaining beer before losses. One save submits changed quantities together. Preserve colleagues' requests, original request context and untouched approvals; keep detailed request editing and Head Brewer decisions available below the grid. Show the product-based estimated packaging date alongside the brew so Sales can choose a required date without moving between modules.

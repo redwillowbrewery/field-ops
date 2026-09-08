@@ -20,3 +20,9 @@ export async function approveRequest(f:FormData){
 export async function linkPlan(f:FormData){
  await run("link_take_off_plan",{p_plan:text(f,"plan"),p_batch:text(f,"batch"),p_revision:number(f,"revision"),p_reason:text(f,"reason")},text(f,"batch"));
 }
+
+export async function saveGrid(f:FormData){
+ let items:unknown;
+ try{items=JSON.parse(text(f,"items"));}catch{redirect("/take-off?error=Invalid%20quantities");}
+ await run("save_take_off_grid",{p_subject:text(f,"brew"),p_context:text(f,"context"),p_requests_context:text(f,"requests_context"),p_items:items},text(f,"brew"));
+}

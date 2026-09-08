@@ -71,3 +71,11 @@ Recipe design/water treatment; full beer authoring and launch checklist; materia
 Agree planning horizon, refresh cadence, package/loss rules, who can approve the split, and how changes after Production agreement are reviewed. Use evidence from the source and a short Sales/Production walkthrough rather than inventing these rules.
 
 See [implementation and rollout](./sprint-3-implementation-review.md). Confirmed: tank 1 is staging; Head Brewer approval belongs to toby@redwillowbrewery.com. Source lineage is available for some tasks; exact manual association covers missing lineage.
+
+## Quantity grid and packaging estimate — 8 September 2026
+
+The selected brew exposes one quantity box per canonical Package, grouped into non-carbonated cask/pin and carbonated keg/can. Other formats remain unclassified. Counts use the Package capacity (including the whole case for case packages). Live requested litres and remaining source litres are before losses; approved input/remaining remains a separate scenario using explicit Head Brewer allowances. No implicit 1.06 multiplier or separate invented tank pools.
+
+The grid edits the current user's single request per package and includes colleagues' requests in the totals. Multiple existing requests with different dates/contexts remain separate and can be edited in the saved-request details. All changed cells save atomically with source/request concurrency checks. Zero withdraws an existing request; untouched approvals remain intact. Head Brewer review remains mandatory.
+
+Import product fermentation duration through the Take Off adapter and show brew date plus that duration as an estimated packaging date in the overview and selected brew. Unknown duration/date stays unknown, including until the updated connector runs. This is a planning estimate, never a release, stock or dispatch promise.
