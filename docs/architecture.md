@@ -351,3 +351,7 @@ Take Off Planning is a coordination view over ViewPlan-owned brew plans, batches
 ### Take Off planning estimates — 8 September 2026
 
 Take Off exposes canonical packaging_days on the source planning/batch snapshot, supplied by the ViewPlan adapter from product fermentation duration. The shared planning helper derives an estimated packaging date from brew date; null is unknown. This observation does not transfer Product ownership or establish batch release readiness. Canonical Package broad_format and capacity_litres drive requested volume groups: cask is non-carbonated, keg/can carbonated, other formats unclassified. These request scenarios share one source volume and remain separate from approved beer input with explicit losses.
+
+### Cask planning formats — 8 September 2026
+
+E-Cask (40 L), Firkin (41 L), Pin (20 L) and Pin (Flat Bottom) (20 L) are enabled as canonical Take Off planning options, even without an existing saleable variant for the selected beer. The shared database eligibility rule drives both the screen and request validation. Packages must remain active; other formats retain existing saleable-variant eligibility. This does not create Product Variants, prices or stock availability. Existing requests and Head Brewer review are preserved.

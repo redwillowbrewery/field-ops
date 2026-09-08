@@ -79,3 +79,7 @@ The selected brew exposes one quantity box per canonical Package, grouped into n
 The grid edits the current user's single request per package and includes colleagues' requests in the totals. Multiple existing requests with different dates/contexts remain separate and can be edited in the saved-request details. All changed cells save atomically with source/request concurrency checks. Zero withdraws an existing request; untouched approvals remain intact. Head Brewer review remains mandatory.
 
 Import product fermentation duration through the Take Off adapter and show brew date plus that duration as an estimated packaging date in the overview and selected brew. Unknown duration/date stays unknown, including until the updated connector runs. This is a planning estimate, never a release, stock or dispatch promise.
+
+### Cask planning formats — 8 September 2026
+
+E-Cask (40 L), Firkin (41 L), Pin (20 L) and Pin (Flat Bottom) (20 L) are enabled as canonical Take Off planning options, even without an existing saleable variant for the selected beer. The shared database eligibility rule drives both the screen and request validation. Packages must remain active; other formats retain existing saleable-variant eligibility. This does not create Product Variants, prices or stock availability. Existing requests and Head Brewer review are preserved.

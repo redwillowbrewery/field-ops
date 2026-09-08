@@ -29,8 +29,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{brew?:s
  const summary=volumeSummary(rows,packages,context||"",selected?.volume_litres??null);
  const stale=!state.snapshot_at||loadedAt-new Date(state.snapshot_at).getTime()>86400000||!!state.last_error;
  const editable=selected&&!selected.missing&&["planned","staging","in_tank"].includes(selected.phase)&&!!selected.product_id;
- const variants=selected?.product_id?await db.from("product_variants").select("package_id").eq("product_id",selected.product_id).eq("allow_sale",true):{data:[]};
- const allowed=new Set((variants.data||[]).map(v=>v.package_id));
+ const planningPackages=selected?.product_id?await db.rpc("take_off_package_options",{p_product:selected.product_id}):{data:[],error:null};
+ if(planningPackages.error)throw new Error("Packaging options are unavailable. Please reload.");
+ const allowed=new Set((planningPackages.data||[]).map((p:{id:string})=>p.id));
 
  const events=selected?await db.from("take_off_events").select("id,action,created_at,details").in("subject_id",[...groupIds]).order("id",{ascending:false}).limit(25):{data:[]};
  return <main className="mx-auto max-w-7xl p-4 pb-12 text-slate-950 sm:p-8">

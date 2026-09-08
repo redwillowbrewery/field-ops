@@ -74,3 +74,7 @@ Implemented on feature/take-off-quantity-grid; not deployed. Migration 202609081
 The audited tblBrew_Type.incubation_duration_days is included for both planned and actual brews. Dates are estimates derived from source brew date plus calendar days, not release/stock promises. Unknown values stay unknown. Update the three-file connector bundle on the ViewPlan server and run take-off to populate them; no Access source query was executed on the dev box.
 
 Validation: production build, focused lint, isolated database workflow tests (atomic rollback, duplicate-submit protection, ownership, approval preservation, withdrawal, null/invalid fermentation data), calculation and source-projection tests. Live Sales/Head Brewer acceptance and comparison of the new date fields with ViewPlan remain pending.
+
+### Cask planning formats — 8 September 2026
+
+E-Cask (40 L), Firkin (41 L), Pin (20 L) and Pin (Flat Bottom) (20 L) are enabled as canonical Take Off planning options, even without an existing saleable variant for the selected beer. The shared database eligibility rule drives both the screen and request validation. Packages must remain active; other formats retain existing saleable-variant eligibility. This does not create Product Variants, prices or stock availability. Existing requests and Head Brewer review are preserved.
