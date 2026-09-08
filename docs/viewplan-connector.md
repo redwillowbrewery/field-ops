@@ -100,3 +100,7 @@ The same connector framework will be extended to:
 4. availability
 5. returnable containers
 6. delivery/route data
+
+## Sprint 3 — Take Off Planning
+
+The take-off module reads ViewPlan plans, tank contents and existing take-off quantities; it never writes ViewPlan. See [installation, cadence and validation](./sprint-3-implementation-review.md). Copy the updated runner and both take-off scripts together. Head Brewer approval is enforced in Brewery Ops; source sync does not overwrite Sales requests.

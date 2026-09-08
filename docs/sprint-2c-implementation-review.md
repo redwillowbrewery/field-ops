@@ -61,3 +61,7 @@ Authenticated users can only read snapshots for accessible Accounts whose extern
 The customer wrapper completed successfully and refreshed 1,901 commercial snapshots at `2026-09-07T08:09:24.3449201Z` (09:09 UK time). Database verification confirmed all 1,901 rows use GBP, share that snapshot timestamp, and `account_commercial` state records 1,901 rows with no error. This supersedes the earlier pending first-server-run status; app deployment, source/UI comparisons and mobile field validation remain outstanding.
 
 The first attempt failed before creating a run because the new HTTP helper omitted the working connector's User-Agent. Read-only comparison reproduced HTTP 401 without it and success with it. The helper now uses the existing connector identifier and reports failure stage/HTTP status without exposing credentials.
+
+## Acceptance update — recorded 8 September 2026
+
+Commit 81b8a0f was deployed successfully to Vercel Production. The user confirmed balances, customer-specific prices/package restrictions and order/dispatch flags, then confirmed all remaining checks apart from prospect testing. Prospect creation/conversion and history-preservation field validation is explicitly deferred to avoid introducing test data into ViewPlan. This supersedes earlier pending deployment/acceptance notes; deferred prospect testing is not claimed complete. The next sprint is being scoped separately.

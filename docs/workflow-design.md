@@ -278,3 +278,7 @@ Modules remain useful boundaries for architecture, permissions and specialist wo
 ## Live price-list sharing — current Sprint 2C
 
 From Account or Quick Email, Sales can copy a live customer-price link or the generic standard-price link. Reuse, replace and revoke customer links within the same workflow. Customers open without a login, review decorated current availability and contact Sales to confirm an order. Generic links are explicitly labelled as standard prices. Email preparation remains distinct from sending; no Order Capture is introduced. See [live-list requirements](./sprint-2c-live-price-lists.md).
+
+## Shared Take Off workflow — Sprint 3
+
+Sales opens Take Off Planning from the Sales workspace, finds a planned/staging/in-tank beer and records package units and a required date. The Head Brewer (currently toby@redwillowbrewery.com) reviews the requirement and records agreed units, date, an explicit loss allowance and constraints. Both teams see the split, outstanding requests and source changes. The task retains its context when ViewPlan moves the batch between vessels. Source take-off quantities remain separately labelled to avoid double-counting. The permission is enforced server-side and is independent of workspace choice.

@@ -343,3 +343,7 @@ Avoid page-specific source-system logic, fuzzy commercial mappings, package-name
 ## Public Sales price-list presentation
 
 Generic and Account-specific live decorated lists consume canonical availability, effective pricing and Package labels/eligibility. They do not establish new product, inventory or ordering authority. The generic route uses the standard-price policy with no Account. Customer routes resolve a revocable opaque bearer token server-side; public output is limited to the Account display name and selling presentation. CRM records and commercial/credit snapshots remain private. Link management follows staff Account access; workspace preferences never grant permission. See [Sprint 2C live lists](./sprint-2c-live-price-lists.md).
+
+## Sprint 3 planning boundary — 8 September 2026
+
+Take Off Planning is a coordination view over ViewPlan-owned brew plans, batches and tank observations. Canonical local subjects have explicit source identities; plans resolve to batches through audited lineage or a Head Brewer-confirmed association. Tank 1 is the confirmed staging vessel, not physical FV occupancy. Sales requirements and Head Brewer decisions are separate local records; source changes invalidate the decision context without erasing history. This does not transfer stock, production execution or order authority. See [Sprint 3 implementation](./sprint-3-implementation-review.md).

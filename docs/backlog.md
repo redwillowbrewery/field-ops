@@ -1,5 +1,7 @@
 # Brewery Ops Backlog
 
+**Delivery update — 8 September 2026:** Sprint 3 Take Off Planning is in implementation; migration applied, first server sync and app rollout pending. Sprint 2C is deployed and accepted except deferred prospect testing. This supersedes earlier CURRENT/NEXT delivery labels below. See [Sprint 3 rollout](./sprint-3-implementation-review.md).
+
 This backlog is ordered around the architecture in [`docs/architecture.md`](./architecture.md). Prioritise work that strengthens the canonical Brewery Ops model and reduces direct coupling to ViewPlan/Sellar.
 
 ## Current delivery order — 5 September 2026
@@ -441,6 +443,41 @@ This is the first operational ownership programme after Sales: Product → Produ
 - Packaging event.
 - Packaged stock by Product Variant/location/batch.
 
+### P7.1a Shared brew schedule and Sales packaging requirements
+
+Accepted 7 September 2026 — future Production planning scope.
+
+Outcome: Production and Sales can both easily understand what beers are scheduled or in production, when they are expected, and what packaging is needed.
+
+- Show one shared canonical brew/production schedule through role-appropriate Sales and Production views. Make beer, planned brew/batch, current stage, expected packaging/availability dates and changes clear; distinguish estimates from confirmed plans.
+- Let Sales add a packaging requirement directly against a scheduled beer or beer already in production: canonical Package/sellable format, quantity with explicit units, required-by date and optional Account/context or notes. Do not require a captured Order to express a requirement.
+- Show aggregated packaging requirements alongside the planned packaging split, with drill-down to individual requests. Keep requested demand distinct from Production-confirmed packaging plans and actual packaged stock.
+- Production reviews requirements and confirms, adjusts or flags constraints; Sales can see the response and any timing/quantity shortfall. Preserve who requested/changed what and when. A Sales requirement must not silently overwrite the production plan or promise available stock.
+- Keep entry low-friction from the schedule or beer context, without re-keying beer, batch or package details across workspaces.
+
+Canonical concepts: Product (Beer), planned brew/Batch, Package/Product Variant, packaging requirement and production/packaging plan. Sales owns the demand request; Production owns acceptance and operational scheduling. Workspace views share records; permissions determine permitted actions.
+
+Current authority: ViewPlan remains authoritative for operational production and stock. Any interim schedule import requires an explicit read-only adapter, stable source identity and visible freshness; do not create a second operational schedule. Target authority transfers to canonical Brewery Ops Production services only through the accepted Product → Production → Inventory migration. This item does not introduce Order Capture, allocation, ViewPlan writes or Logistics ownership.
+
+Acceptance: a salesperson can find a scheduled or in-production beer, request a specified package quantity by a date, and see Production's response in the same shared context. Production can see total demand, its source requests and conflicts without collating messages or spreadsheets. Changes to dates or packaging plans remain understandable to both teams.
+
+### P7.1b Packaging schedule drives materials requirements
+
+Accepted 7 September 2026 — future Production/Inventory planning scope; follows P7.1a.
+
+Outcome: the packaging schedule tells the team which materials are needed, in what quantities and by when, including beer-specific pump clips, labels and other packaging components.
+
+- Derive material demand from scheduled packaging quantities using canonical Package/Product Variant component requirements (BOM), explicit units and configurable usage/wastage rules. Include applicable pump clips, labels, cans, ends, cartons/trays and other consumables; do not assume every format uses the same components or quantities.
+- Link beer-specific printed materials to the applicable approved artwork/version. Flag missing or unapproved material specifications rather than silently substituting another version.
+- Aggregate requirements across scheduled packaging runs, retaining traceability to each beer/run. Recalculate when dates, quantities or package splits change; distinguish tentative demand from confirmed requirements and avoid double-counting Sales requests already included in the packaging plan.
+- Compare requirements with usable material stock, existing commitments and confirmed incoming supplies due in time. Show shortages, required-by dates and procurement deadlines using supplier lead times where known; missing stock or lead-time data stays visibly unknown.
+- Surface shortages and late incoming materials on the packaging schedule, with actionable purchasing requirements. Creating a requirement is distinct from placing a purchase order or consuming stock; actual material consumption belongs to the packaging event.
+- Treat reusable containers through ready-fleet/recovery requirements, separately from consumable materials procurement.
+
+Canonical concepts: packaging plan, Package/Product Variant component BOM, artwork version, material stock, incoming supply and purchasing requirement. Production owns the packaging plan; Inventory/Purchasing supplies material availability and procurement status. ViewPlan remains the current operational authority until the relevant Product → Production → Inventory boundary is explicitly migrated; any interim inputs require explicit read-only adapters and visible freshness. No ViewPlan write or automatic purchase-order submission is introduced by this backlog item.
+
+Acceptance: scheduling or changing a packaging run updates its material quantities and dates; the team can see whether the correct labels/pump clips and other components will be ready, identify shortages in time to act, and trace each requirement back to its scheduled runs without manual spreadsheet calculations.
+
 ### P7.2 Stock ledger
 
 Prefer stock movements/events over mutable magic totals where practical.
@@ -498,3 +535,7 @@ Do not prioritise a shortcut that makes ViewPlan/Sellar harder to replace unless
 ### P2.4b Live decorated price lists — CURRENT Sprint 2C
 
 Implemented; migration applied, app deployment and Sales field pass pending. Generic standard trade prices and revocable Account-specific links reuse canonical effective pricing, package eligibility and availability. Account and Quick Email provide sharing controls; customers need no login. Source authority is unchanged. See [requirements and acceptance](./sprint-2c-live-price-lists.md).
+
+### Next delivery slice — scoped 8 September 2026
+
+P7.1a is promoted to the [Sprint 3 Take Off Planning proposal](./sprint-3-take-off-planning.md). ViewPlan supplies in-tank facts and its brew plan; Brewery Ops adds Sales packaging requirements and Production review. Take Off Planning is the sole workbook reference; its second tab is superseded. P7.1b materials requirements follows this slice. Source audit and loss/unit confirmation precede implementation.

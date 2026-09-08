@@ -1,5 +1,7 @@
 # Brewery Ops Sprint & Branch Roadmap
 
+**Delivery update — 8 September 2026:** Sprint 3 Take Off Planning is in implementation; migration applied, first server sync and app rollout pending. Sprint 2C is deployed and accepted except deferred prospect testing. This supersedes earlier CURRENT/NEXT delivery labels below. See [Sprint 3 rollout](./sprint-3-implementation-review.md).
+
 This document turns [`architecture.md`](./architecture.md) and [`backlog.md`](./backlog.md) into bounded delivery increments.
 
 ## Delivery principles
@@ -295,6 +297,10 @@ This workflow also leaves a clean insertion point for future Order Capture: the 
 # Post-Sales delivery sequence — Product → Production → Inventory → Order Capture → Logistics
 
 This replaces the former Sprint 3/4/5/6+ delivery order. Future sprint numbers are to be assigned during planning. ViewPlan retains operational authority until each bounded replacement is accepted. Establish Product, Production and Inventory operational ownership before Brewery Ops-owned Order Capture or Logistics. Read-only Account order consumption and supporting sales analysis do not transfer order authority.
+
+## Next sprint proposal — Sprint 3: Shared Take Off Planning
+
+See [Sprint 3 scope](./sprint-3-take-off-planning.md). Start with a read-only audit of ViewPlan tank contents and brew planning, then deliver the shared Take Off view, Sales packaging requirements and Production review. Only the spreadsheet's Take Off Planning tab is in scope. This advances canonical Product/Planning foundations without transferring operational authority. The broader ownership sequence below remains the long-term direction.
 
 ## First post-Sales work — Brewery Ops operational core
 
