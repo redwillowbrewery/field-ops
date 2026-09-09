@@ -20,6 +20,7 @@ Write-Host "---------------------------------------------"
 Write-Host "ViewPlan: READ ONLY"
 Write-Host "Includes: canonical catalogue + Package semantics + Sellar variant mappings"
 
+Run-Step "Product label source observations" "viewplan-product-label-sync.ps1"
 Run-Step "Canonical products / variants / price lists" "viewplan-price-sync.ps1"
 Run-Step "Canonical Package semantics" "viewplan-package-sync.ps1"
 Run-Step "Sellar / ViewPlan variant mappings" "viewplan-sellar-map-sync.ps1"

@@ -112,3 +112,11 @@ The updated source helper also selects tblBrew_Type.incubation_duration_days for
 ## Product ownership handover — planned, not yet applied
 
 See [Product ownership review](./product-ownership-review.md). The current products runner invokes price/catalogue reconciliation, canonical Package reconciliation and exact Sellar mappings. During Product adoption, refactor editorial writes into external observations so routine reconciliation cannot overwrite local published names, specifications or content. Keep ViewPlan-owned prices, operational plan/batch/tank facts and exact IDs intact. No ViewPlan writes or automatic external creation are authorised by this review; new local beers need an explicit manual setup/mapping workflow until operational ownership transfers.
+
+## Product Label Text discovery — Sprint 4
+
+Run [audit-viewplan-product-labels.ps1](../scripts/audit-viewplan-product-labels.ps1) in 32-bit Windows PowerShell in the authenticated ViewPlan session. It discovers candidate product/label fields and takes bounded read-only snapshots including memo text, without saved query execution or writes. Share product-label-audit.json. Confirm the actual UI field, representative fined/unfined/vegan-friendly labels, gluten wording and change-marker behavior before implementing mappings. The sample is not a complete catalogue or an approved declaration. See [Sprint 4](./sprint-4-product-foundation.md) for adoption and family rules.
+
+## Sprint 4 Product source and editorial boundary
+
+See [rollout](./sprint-4-implementation-review.md). The updated products runner performs a full label observation refresh before catalogue reconciliation. Unmapped source products wait for an exact match in Products, and routine Sellar refresh is availability-only. Published editorial names/ABV are protected while ViewPlan prices and operational facts continue. Install the updated server Product scripts after application release; migrations are already applied. The Windows overnight scheduling/session fault remains a separate open issue.

@@ -15,6 +15,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{product
  ]);
  if(catalogue.error||packages.error||role.error)throw new Error("Product information is unavailable");
  const product=catalogue.data.find(p=>p.id===q.product)||catalogue.data[0];
+ if(product){const {data:workspace,error:workspaceError}=await db.from("product_workspaces").select("product_id").eq("product_id",product.id).maybeSingle();if(workspaceError)throw new Error("Product workspace unavailable");if(workspace)redirect("/products?product="+encodeURIComponent(product.id));}
  const pkg=packages.data.find(p=>p.id===q.package);
  const [base,override]=product?await Promise.all([
   db.from("product_information").select("product_id,details,revision,updated_at").eq("product_id",product.id).maybeSingle(),

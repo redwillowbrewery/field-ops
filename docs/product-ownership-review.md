@@ -1,6 +1,8 @@
-# Sprint 3 review and Product ownership proposal
+# Sprint 3 review and Product ownership plan
 
-Reviewed 9 September 2026 against main at c979129. This document separates implemented behavior, confirmed direction and the recommended next delivery scope. Sprint 4 numbering/scope below is a proposal, not a completed ownership transfer.
+**Sprint 4 implementation — 9 September 2026:** Product foundation is CURRENT. Database migrations are applied and audited labels are staged; application deployment and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance still open; Sprint 2C prospect testing remains deferred. See [implementation and rollout](./sprint-4-implementation-review.md). This status supersedes historical CURRENT/NEXT notes below.
+
+Reviewed 9 September 2026 against main at c979129. This document separates implemented behavior, confirmed direction and the recommended next delivery scope. Sprint 4 is now the agreed next sprint; see [detailed requirements](./sprint-4-product-foundation.md). Operational ownership has not yet transferred.
 
 ## Recommendation
 
@@ -49,8 +51,8 @@ Reuse canonical IDs and existing Product, Package and Product Variant records.
 | Marketing revision and asset | Versioned descriptions, pump clips, labels, packshots and other artwork; approval/current-publication pointers and owned file storage |
 | Recipe / formulation revision | Ingredients, units, quantities, target brew volume, process specification and change history; independently versioned from marketing |
 | Package | Physical format, capacity, lifecycle and procurement semantics; not a recipe or a beer |
-| Packaging process defaults | Reviewed treatment assumptions associated with a format, including explicit isinglass use; separate from container lifecycle |
-| Product + Package | Presentation/treatment/declaration exceptions for that beer in that package, including planning formats without existing saleable variants |
+| Packaging family | Canonical Cask / Keg & Can treatment grouping, separate from container lifecycle |
+| Beer + Packaging family | Fining and vegan declarations and approved process effects; no repeated per-container fining edits |
 | Product Variant / channel listing | Sellable unit and exact external mapping; separate from Product identity and availability |
 | Launch readiness | Required tasks, owners, evidence and completion state attached to the Product/release |
 | Batch / Gyle | Actual production instance; later records the exact formulation/process revisions used, not whichever recipe happens to be current |
@@ -59,13 +61,9 @@ A recipe adjustment need not create a new beer; neither does new artwork or a pa
 
 Keep nominal/published ABV separate from observed or measured batch ABV. Ingredient-derived allergen suggestions require reviewed source specifications and approval before becoming a customer declaration. A recipe change must flag relevant declarations for review rather than silently retaining or rewriting claims.
 
-### Fining rules confirmed by the user
+### Packaging families and declarations — confirmed
 
-Cask/pin formats use isinglass; keg and can do not. Implement as reviewed package-process defaults with explicit Product + Package exceptions, not hard-coded page logic or repeated edits to every beer.
-
-Store isinglass use separately from fined/unfined status. No isinglass does not prove no other fining treatment, vegan suitability or an allergen declaration. Unknown and explicit overrides must survive inheritance.
-
-Resolve treatment defaults from the package process and then the beer/package exception. Resolve the beer's base composition declarations separately, applying approved package-specific effects/exceptions. Preserve the existing reviewed local records; migrate them without silently replacing explicit decisions with new defaults.
+The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.
 
 ## Source ownership and initial merge
 
@@ -73,7 +71,7 @@ Resolve treatment defaults from the package process and then the beer/package ex
 | --- | --- | --- |
 | Existing identity, external references, nominal ABV, process duration | ViewPlan observations and existing canonical mappings | Brewery Ops approved Product/specification; source observations retained separately |
 | Description, tasting notes, current display artwork | Existing Sellar presentation snapshot; review alternatives | Brewery Ops published marketing revision and assets |
-| Allergens, vegan/free-from claims and fining | Existing local reviewed records; external flags are evidence only | Brewery Ops reviewed declarations and package-process exceptions |
+| Allergens, vegan/free-from claims and fining | Existing local reviewed records and audited ViewPlan Label Text candidates; external flags are evidence only | Brewery Ops Beer and Beer-family declarations |
 | Recipe/formulation | Audited ViewPlan recipe structures or supplied recipe records | Brewery Ops revision authoring; ViewPlan execution remains authoritative until a separate cutover |
 | Active/sellable/business-exchange observations | ViewPlan | Preserve source observations and adopt explicit canonical governance; do not confuse local draft/published state with source saleability |
 | Product/Package/Variant mappings | Existing exact ViewPlan and Sellar IDs | Brewery Ops mappings; no external name becomes an identity rule |
@@ -95,7 +93,7 @@ Field authority is explicit. Never use a universal “ViewPlan wins”, “Sella
 
 Cutover is idempotent and reviewable. After adoption, later external editorial changes may enter an explicit comparison/import workflow; they never become an ongoing hidden authority. Routine Sellar sync becomes availability-only. Existing cached presentation is migration material, not a second permanent editor.
 
-## Proposed Sprint 4 — Product foundation and publishing
+## Agreed next Sprint 4 — Product foundation and publishing
 
 One outcome: create or adopt a beer, prepare its customer information, track launch readiness and publish it once for every Sales surface.
 
@@ -103,7 +101,7 @@ One outcome: create or adopt a beer, prepare its customer information, track lau
 
 - One Product workspace with quick creation: working name and Product type are sufficient for a draft. Offer optional duplication of an existing beer/template without inheriting approvals or external IDs. Do not require a recipe, artwork, Sellar listing, stock or ViewPlan ID to save the initial beer.
 - Adopt existing Products through the reviewed import above; preserve history, requests, prices and mappings.
-- Edit and publish versioned descriptions, approved artwork and product specification. Integrate the current declarations editor and package-process defaults into this workspace.
+- Edit and publish versioned descriptions, approved artwork and product specification. Integrate the current declarations editor and packaging-family rules into this workspace.
 - Establish a versioned formulation record with draft/approved/superseded states and attachment/evidence support. A recipe can be recorded without claiming operational execution authority; the full ingredient/calculation builder follows.
 - Track a configurable launch checklist: artwork approved, Untappd record created, Sellar listing created, initial pump-clip order completed, recipe/specification approved and product declarations reviewed. Tasks carry owner/evidence; required items gate “ready to launch”, not initial draft creation. Marking a task complete does not automatically create a third-party record or place an order.
 - Publish a Product independently of whether there is current stock. Availability and current in-tank status continue to come from their existing sources.
@@ -117,7 +115,7 @@ While ViewPlan runs production, a new local beer needs an explicit manual ViewPl
 - Adopt an existing beer without rekeying its presentation; confirm origin and resolve conflicts.
 - Publish updated artwork/description once and see it consistently on generic/customer lists and Coming soon.
 - Re-run both connectors: the publication remains unchanged while availability/source facts refresh.
-- Cask/pin and keg/can display the reviewed treatment and declaration differences; explicit exceptions/unknown values are preserved.
+- Cask/pin and keg/can display the reviewed treatment and declaration differences; unknown values are preserved and conflicting legacy overrides are reviewed.
 - A draft edit or recipe revision does not silently change a public claim or a historical batch specification.
 - Launch readiness clearly shows missing required tasks; local publication, external listing and readiness are distinct.
 - A retired beer remains available for historical orders/batches, with no fuzzy ID remapping.
@@ -134,6 +132,6 @@ Do not compress this entire sequence into Product foundation.
 
 ## Decision boundary for this review
 
-Confirmed: local declarations with package variation; the stated isinglass defaults; desired versioned Product/marketing/formulation model and easy creation/launch progress; Sellar's intended ongoing role is availability only.
+Confirmed: the Beer and Packaging family model in the Sprint 4 brief, ViewPlan Label Text as audited import evidence, versioned marketing/formulations and low-friction creation, and Sellar availability-only after cutover.
 
-Recommended: close Sprint 3 field acceptance and deliver the bounded Product foundation as Sprint 4. No recipe schema, publication migration, package-process defaults or connector authority change has been implemented by this documentation review.
+Agreed: close Sprint 3 field acceptance and deliver the bounded Product foundation as Sprint 4. No recipe schema, publication migration, package-process defaults or connector authority change has been implemented by this documentation review.

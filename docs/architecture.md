@@ -1,5 +1,7 @@
 # Brewery Ops Architecture
 
+**Sprint 4 implementation — 9 September 2026:** Product foundation is CURRENT. Database migrations are applied and audited labels are staged; application deployment and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance still open; Sprint 2C prospect testing remains deferred. See [implementation and rollout](./sprint-4-implementation-review.md). This status supersedes historical CURRENT/NEXT notes below.
+
 Status: **Canonical design reference**
 
 This document defines the architectural principles and core business concepts for Brewery Ops. When implementation convenience conflicts with this document, prefer the architecture and update this document deliberately if the business model has genuinely changed.
@@ -12,7 +14,7 @@ Brewery Ops must model brewery business concepts in its own canonical data model
 
 ### Transitional ownership — agreed 5 September 2026
 
-Sprint 2C is deployed; Sprint 3 is CURRENT for field acceptance. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+Sprint 2C is deployed; Sprint 3 field acceptance remains open. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
 
 The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
 
@@ -370,6 +372,6 @@ Available and approved Coming soon formats display their effective package infor
 
 ## Product ownership transition — review 9 September 2026
 
-The [Product ownership review](./product-ownership-review.md) records current implementation, missing model/workflow pieces and a proposed Product foundation sprint. The target is locally published Product specifications, marketing assets, declarations, independent formulation revisions and launch readiness. Sellar's ongoing role becomes availability-only after a reviewed seed and explicit connector cutover; current code still imports its presentation fields.
+The [Product ownership review](./product-ownership-review.md) records current implementation, missing model/workflow pieces and the agreed next Product foundation sprint. The target is locally published Product specifications, marketing assets, declarations, independent formulation revisions and launch readiness. Sellar's ongoing role becomes availability-only after a reviewed seed and explicit connector cutover; the Sprint 4 branch stops those writes while retaining the previous snapshot for adoption.
 
-Source observations and locally adopted fields must have separate ownership. Preserve ViewPlan operational production, stock, pricing, orders and logistics until their own gates pass. A Product draft must be creatable without external IDs or completed artwork/recipe; publication and launch readiness have their own checks. Package-process defaults cover the confirmed cask/pin isinglass use and keg/can non-use, with beer/package exceptions. These defaults are not yet implemented and must not be conflated with vegan, allergen or general fined/unfined declarations.
+Source observations and locally adopted fields must have separate ownership. Preserve ViewPlan operational production, stock, pricing, orders and logistics until their own gates pass. A Product draft must be creatable without external IDs or completed artwork/recipe; publication and launch readiness have their own checks. The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.
