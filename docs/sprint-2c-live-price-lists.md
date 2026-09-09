@@ -32,3 +32,15 @@ Migration: `20260907120000_live_price_list_links.sql`. App requires the existing
 No Order Capture, checkout, payment processing, customer login or ViewPlan write is introduced. Product/Production/Inventory ownership still precedes Brewery Ops-owned Order Capture and Logistics.
 
 Implementation: migration applied 7 September 2026. Application deployment and Sales field pass remain pending. Automated checks cover token resolution, isolation, rotation/revocation, database permissions, generic pricing and package labels. No new ViewPlan connector script is required for this slice.
+
+## Sprint 3 extension — Coming soon
+
+Both public links now include the separate in-tank preview described in the Sprint 3 requirements. Available-stock presentation remains distinct. Future formats need current Head Brewer approval; generic/customer effective pricing, package restrictions and final token-revocation checks cover the new section too. Unknown prices and dates are labelled, never invented. The server-only projection requires migration 20260908190000_price_list_coming_soon.sql; no additional ViewPlan script is needed.
+
+## Locally maintained product information — 9 September 2026
+
+Confirmed direction: Brewery Ops owns published allergen, dietary and fining declarations, with beer defaults and per-Package overrides. This is a bounded presentation capability; ViewPlan still owns operational Product/Production/Inventory facts. Sales → Product information lets staff read the declarations and the Head Brewer confirm changes. Each write validates fields, checks the previous revision and records an audit event.
+
+A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
+
+Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.

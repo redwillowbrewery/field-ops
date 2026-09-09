@@ -543,3 +543,11 @@ P7.1a is promoted to the [Sprint 3 Take Off Planning proposal](./sprint-3-take-o
 ### Sprint 3 refinement — quantity grid and fermentation estimate
 
 Implemented on feature/take-off-quantity-grid: per-package quantity boxes, live carbonation groups/remaining litres before losses, atomic request updates and ViewPlan-derived estimated packaging dates. Product/Production/Inventory ownership, material requirements and packaging execution remain follow-on work. Application release and updated server-connector verification are pending; see Sprint 3 implementation review.
+
+### Sprint 3 — public Coming soon section
+
+Implemented: generic and Account price-list links expose current in-tank beers, provisional packaging dates and valid approved formats. Canonical pricing/restrictions and revocable-link controls are preserved. Customer review of the new presentation remains field acceptance; operational inventory, reservations and Order Capture remain out of scope.
+
+### Product declarations on price lists — 9 September 2026
+
+The Coming soon delivery now includes locally maintained allergen statements, vegan/gluten-free/lactose-free flags and fined/unfined status. Sales → Product information provides beer defaults and package overrides, confirmed by the Head Brewer. Price-list formats show effective declarations; unconfirmed values remain unknown. See the Sprint 3 implementation review.

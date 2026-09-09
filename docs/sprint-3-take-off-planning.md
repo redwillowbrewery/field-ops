@@ -83,3 +83,19 @@ Import product fermentation duration through the Take Off adapter and show brew 
 ### Cask planning formats — 8 September 2026
 
 E-Cask (40 L), Firkin (41 L), Pin (20 L) and Pin (Flat Bottom) (20 L) are enabled as canonical Take Off planning options, even without an existing saleable variant for the selected beer. The shared database eligibility rule drives both the screen and request validation. Packages must remain active; other formats retain existing saleable-variant eligibility. This does not create Product Variants, prices or stock availability. Existing requests and Head Brewer review are preserved.
+
+## Coming soon on shared price lists
+
+Generic and customer-specific public price lists show a separate Coming soon section below available stock. Include active, non-business-exchange Products mapped to positive-volume physical in-tank batches; exclude staging, planned, finished, missing and conflicted subjects. Product name, artwork, description and ABV use canonical presentation data. Before a valid Head Brewer split, show the beer with packaging to be confirmed. Only positive, non-withdrawn approvals against the current source context expose formats.
+
+Dates are provisional packaging estimates using the later of source fermentation estimate and approved packaging date. Past dates become Timing to be confirmed. Stale (over 24 hours), missing or failed planning refreshes suppress the upcoming rows with customer-safe wording; available stock remains usable. Multiple batches consolidate by Product and Package with the earliest known estimate.
+
+Generic prices use the existing standard policy; customer links retain exact Account pricing and package restrictions. Approved planning formats without an unambiguous saleable variant/price say Ask for price. Never create stock, sales variants, reservations or orders. No source keys, tank names, gyles, volumes, requests, owners, notes or account commercial facts appear publicly. Format filters apply to both sections; beers with unconfirmed formats appear only under All.
+
+## Locally maintained product information — 9 September 2026
+
+Confirmed direction: Brewery Ops owns published allergen, dietary and fining declarations, with beer defaults and per-Package overrides. This is a bounded presentation capability; ViewPlan still owns operational Product/Production/Inventory facts. Sales → Product information lets staff read the declarations and the Head Brewer confirm changes. Each write validates fields, checks the previous revision and records an audit event.
+
+A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
+
+Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.

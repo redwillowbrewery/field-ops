@@ -1,3 +1,4 @@
+import {ProductInformationDetails} from "@/components/product-information-details";
 import type { AccountSellingResult, AccountSellingRow } from "@/lib/account-selling";
 import { allowedPriceListImage } from "@/lib/price-list-policy";
 
@@ -21,7 +22,7 @@ export function DecoratedPriceList({ selling, format = "all" }: { selling: Accou
           <div className="min-w-0"><h2 className="text-lg font-semibold">{item.productName}</h2>{item.abv != null ? <p className="text-sm text-slate-500">{item.abv}% ABV</p> : null}{item.description ? <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p> : null}</div>
         </div>
         <div className="mt-4 border-t border-slate-100">{rows.map(row => <div key={row.variantId} className="grid grid-cols-[1fr_auto] gap-3 border-b border-slate-50 py-2.5 text-sm">
-          <span>{row.packageLabel}<span className="ml-2 text-xs text-emerald-700">Available</span></span>
+          <div>{row.packageLabel}<span className="ml-2 text-xs text-emerald-700">Available</span><ProductInformationDetails information={row.information}/></div>
           <span className="text-right font-semibold">{money(row.customerPrice ?? row.listPrice)}</span>
         </div>)}</div>
       </section>;

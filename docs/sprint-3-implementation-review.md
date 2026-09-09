@@ -78,3 +78,17 @@ Validation: production build, focused lint, isolated database workflow tests (at
 ### Cask planning formats — 8 September 2026
 
 E-Cask (40 L), Firkin (41 L), Pin (20 L) and Pin (Flat Bottom) (20 L) are enabled as canonical Take Off planning options, even without an existing saleable variant for the selected beer. The shared database eligibility rule drives both the screen and request validation. Packages must remain active; other formats retain existing saleable-variant eligibility. This does not create Product Variants, prices or stock availability. Existing requests and Head Brewer review are preserved.
+
+## Public Coming soon price-list extension
+
+Implemented server-only planning projection, canonical Account-aware pricing composition and a separate decorated Coming soon renderer on both public routes. Source selection and approval validation are atomic; fresh physical in-tank batches only, no staging/planned/history. All public data is explicitly selected. Customer restrictions are applied before requesting prices, and revocation is checked again after both selling and upcoming reads.
+
+Validation covers physical-tank eligibility, approval invalidation, stale/failed refresh suppression, overdue estimates, anonymous/staff RPC denial, private-field exclusion, generic versus customer pricing, one-way restrictions, missing sales variants and batch consolidation. Source migration: 20260908190000_price_list_coming_soon.sql. No connector changes, stock writes, sales-variant creation or customer messages are required. Sales field acceptance remains pending.
+
+## Locally maintained product information — 9 September 2026
+
+Confirmed direction: Brewery Ops owns published allergen, dietary and fining declarations, with beer defaults and per-Package overrides. This is a bounded presentation capability; ViewPlan still owns operational Product/Production/Inventory facts. Sales → Product information lets staff read the declarations and the Head Brewer confirm changes. Each write validates fields, checks the previous revision and records an audit event.
+
+A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
+
+Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.

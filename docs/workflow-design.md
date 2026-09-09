@@ -286,3 +286,11 @@ Sales opens Take Off Planning from the Sales workspace, finds a planned/staging/
 ### Take Off quantity entry — 8 September 2026
 
 Sales enters packaging units in a single grid while seeing live carbonated/non-carbonated litre requirements and remaining beer before losses. One save submits changed quantities together. Preserve colleagues' requests, original request context and untouched approvals; keep detailed request editing and Head Brewer decisions available below the grid. Show the product-based estimated packaging date alongside the brew so Sales can choose a required date without moving between modules.
+
+### Upcoming beers in shared price lists
+
+Opening or refreshing either public link shows available beers first and in-tank Coming soon beers separately. Sales does not maintain a second list. Existing Head Brewer decisions control which upcoming formats can be shown; customers contact Sales about requirements, with no checkout, reservation or dispatch promise. Customer links keep their own pricing and restrictions.
+
+### Product declarations on price lists — 9 September 2026
+
+The Coming soon delivery now includes locally maintained allergen statements, vegan/gluten-free/lactose-free flags and fined/unfined status. Sales → Product information provides beer defaults and package overrides, confirmed by the Head Brewer. Price-list formats show effective declarations; unconfirmed values remain unknown. See the Sprint 3 implementation review.

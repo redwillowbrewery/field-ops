@@ -114,4 +114,57 @@ assert.equal((await db.query('select count(*)::integer n from take_off_package_o
 await db.exec('reset role;set role anon');
 await assert.rejects(db.query('select * from take_off_package_options($1)',[product]));
 console.log('Cask tests passed: all four formats save without sales variants; inactive formats and anonymous access rejected; sales catalogue unchanged.');
+
+await db.exec('reset role');
+await db.exec("alter table products add column name text default 'Public beer',add column abv numeric default 4.5,add column active boolean default true,add column business_exchange boolean default false;create table product_presentations(product_id uuid primary key,description text,image_url text,abv numeric);alter table packages add column package_system text,add column lifecycle text default 'brewery_returnable',add column procurement_mode text default 'reusable_asset';alter table product_variants add column id uuid default gen_random_uuid()");
+await db.exec(readFileSync(new URL('../supabase/migrations/20260908190000_price_list_coming_soon.sql',import.meta.url),'utf8'));
+await db.exec("set role anon");await assert.rejects(db.query('select price_list_coming_soon()'));
+await asUser(sales);await assert.rejects(db.query('select price_list_coming_soon()'));
+await db.exec('reset role');
+const preview=async()=> (await db.query('select price_list_coming_soon() result')).rows[0].result;
+await sync([plan,{...batch,phase:'in_tank',packaging_days:12,brew_date:new Date().toISOString().slice(0,10)}]);
+let upcoming=await preview();
+assert.equal(upcoming.status,'fresh');assert.equal(upcoming.items.length,1);assert.equal(upcoming.items[0].package,null);
+await asUser(sales);
+const upcomingId=(await db.query("select save_take_off_request($1,$2,2,current_date+15,'Private request notes') id",[b.id,pkg])).rows[0].id;
+await asUser(brewer);
+await db.query("select approve_take_off_request($1,1,take_off_context($2),2,current_date+15,0,'Private response')",[upcomingId,b.id]);
+await db.exec('reset role');
+upcoming=await preview();
+assert.equal(upcoming.items[0].package.id,pkg);
+assert.equal(typeof upcoming.items[0].variantId,'string');
+assert.equal(JSON.stringify(upcoming).includes('Private'),false);
+for(const secret of ['owner_id','account_id','quantity','gyle','source_key','vessels','response','notes'])assert.equal(JSON.stringify(upcoming).includes('"'+secret+'"'),false);
+await db.query('update take_off_subjects set revision=revision+1 where id=$1',[b.id]);
+assert.equal((await preview()).items[0].package,null); // invalidated approval no longer advertises a format
+await db.exec("update take_off_sync set last_error='private failure'");
+assert.equal((await preview()).items.length,0);
+await db.exec("update take_off_sync set last_error=null,snapshot_at=now()-interval '25 hours'");
+assert.equal((await preview()).status,'unavailable');
+await db.exec("update take_off_sync set snapshot_at=now();update take_off_subjects set phase='staging' where kind='batch'");
+assert.equal((await preview()).items.length,0);
+await db.exec("update take_off_subjects set phase='in_tank',brew_date=current_date-20,packaging_days=0 where kind='batch'");
+assert.equal((await preview()).items[0].estimatedDate,null);
+await db.exec("update products set active=false");
+assert.equal((await preview()).items.length,0);
+console.log('Coming-soon projection tests passed: in-tank eligibility, approvals, stale/failed source suppression, past dates, service-only access and private-field exclusion.');
+
+await db.exec('reset role');
+await db.exec(readFileSync(new URL('../supabase/migrations/20260909090000_product_information.sql',import.meta.url),'utf8'));
+const information={allergens:'Contains barley and wheat',vegan:true,fining_status:'unfined'};
+const saveInfo=(pkgId,revision,details)=>db.query('select save_product_information($1,$2,$3,$4)',[product,pkgId,revision,JSON.stringify(details)]);
+await db.exec('set role anon');await assert.rejects(db.query('select * from product_information'));
+await asUser(sales);await assert.rejects(saveInfo(null,0,information));
+await assert.rejects(db.query("insert into product_information(product_id) values($1)",[product]));
+await asUser(brewer);await saveInfo(null,0,information);
+await assert.rejects(saveInfo(null,0,{vegan:false}));
+await saveInfo(pkg,0,{vegan:false,fining_status:'fined',gluten_free:null});
+assert.equal((await db.query('select details from product_package_information where product_id=$1 and package_id=$2',[product,pkg])).rows[0].details.vegan,false);
+await assert.rejects(saveInfo(null,1,{vegan:'maybe'}));
+await assert.rejects(saveInfo(null,1,{fining_status:'probably unfined'}));
+await assert.rejects(saveInfo(null,1,{secret:'bad key'}));
+assert.equal((await db.query('select count(*)::integer n from product_information_events')).rows[0].n,2);
+await saveInfo(pkg,1,{}); // remove package overrides, inheriting beer defaults
+assert.deepEqual((await db.query('select details from product_package_information where product_id=$1 and package_id=$2',[product,pkg])).rows[0].details,{});
+console.log('Product information tests passed: Head Brewer-only writes, anonymous denial, revisions, validation, explicit unknown, inheritance and audit history.');
 await db.close();

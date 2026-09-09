@@ -415,3 +415,11 @@ Sprint 2C also includes [live decorated price lists](./sprint-2c-live-price-list
 ### Sprint 3 delivery refinement — 8 September 2026
 
 feature/take-off-quantity-grid adds the low-friction packaging quantity grid and product fermentation-based packaging estimates. The database migration is applied; application changes are not yet deployed. Keep source authority, Head Brewer approvals and completed Sprint 2C work intact. See the Sprint 3 implementation review for remaining field acceptance.
+
+### Sprint 3 — live Coming soon price-list slice
+
+feature/price-list-coming-soon delivers the agreed public in-tank preview on generic and customer-specific links. See Sprint 3 requirements for freshness, approval, provisional-date and privacy rules. This extends the completed live-list presentation without reopening Sprint 2C CRM work.
+
+### Product declarations on price lists — 9 September 2026
+
+The Coming soon delivery now includes locally maintained allergen statements, vegan/gluten-free/lactose-free flags and fined/unfined status. Sales → Product information provides beer defaults and package overrides, confirmed by the Head Brewer. Price-list formats show effective declarations; unconfirmed values remain unknown. See the Sprint 3 implementation review.
