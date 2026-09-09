@@ -8,7 +8,7 @@ This document complements `docs/architecture.md`. It defines how Brewery Ops sho
 
 ### Transitional ownership — agreed 5 September 2026
 
-Sprint 2C is **CURRENT**. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+Sprint 2C is deployed; Sprint 3 is CURRENT for field acceptance. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
 
 The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
 
@@ -294,3 +294,9 @@ Opening or refreshing either public link shows available beers first and in-tank
 ### Product declarations on price lists — 9 September 2026
 
 The Coming soon delivery now includes locally maintained allergen statements, vegan/gluten-free/lactose-free flags and fined/unfined status. Sales → Product information provides beer defaults and package overrides, confirmed by the Head Brewer. Price-list formats show effective declarations; unconfirmed values remain unknown. See the Sprint 3 implementation review.
+
+## Product ownership transition — review 9 September 2026
+
+The [Product ownership review](./product-ownership-review.md) records current implementation, missing model/workflow pieces and a proposed Product foundation sprint. The target is locally published Product specifications, marketing assets, declarations, independent formulation revisions and launch readiness. Sellar's ongoing role becomes availability-only after a reviewed seed and explicit connector cutover; current code still imports its presentation fields.
+
+Source observations and locally adopted fields must have separate ownership. Preserve ViewPlan operational production, stock, pricing, orders and logistics until their own gates pass. A Product draft must be creatable without external IDs or completed artwork/recipe; publication and launch readiness have their own checks. Package-process defaults cover the confirmed cask/pin isinglass use and keg/can non-use, with beer/package exceptions. These defaults are not yet implemented and must not be conflated with vegan, allergen or general fined/unfined declarations.

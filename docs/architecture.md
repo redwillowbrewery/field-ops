@@ -12,7 +12,7 @@ Brewery Ops must model brewery business concepts in its own canonical data model
 
 ### Transitional ownership — agreed 5 September 2026
 
-Sprint 2C is **CURRENT**. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+Sprint 2C is deployed; Sprint 3 is CURRENT for field acceptance. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
 
 The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
 
@@ -367,3 +367,9 @@ Confirmed direction: Brewery Ops owns published allergen, dietary and fining dec
 A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
 
 Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.
+
+## Product ownership transition — review 9 September 2026
+
+The [Product ownership review](./product-ownership-review.md) records current implementation, missing model/workflow pieces and a proposed Product foundation sprint. The target is locally published Product specifications, marketing assets, declarations, independent formulation revisions and launch readiness. Sellar's ongoing role becomes availability-only after a reviewed seed and explicit connector cutover; current code still imports its presentation fields.
+
+Source observations and locally adopted fields must have separate ownership. Preserve ViewPlan operational production, stock, pricing, orders and logistics until their own gates pass. A Product draft must be creatable without external IDs or completed artwork/recipe; publication and launch readiness have their own checks. Package-process defaults cover the confirmed cask/pin isinglass use and keg/can non-use, with beer/package exceptions. These defaults are not yet implemented and must not be conflated with vegan, allergen or general fined/unfined declarations.

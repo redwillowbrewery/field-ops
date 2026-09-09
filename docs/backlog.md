@@ -1,12 +1,12 @@
 # Brewery Ops Backlog
 
-**Delivery update — 8 September 2026:** Sprint 3 Take Off Planning is in implementation; migration applied, first server sync and app rollout pending. Sprint 2C is deployed and accepted except deferred prospect testing. This supersedes earlier CURRENT/NEXT delivery labels below. See [Sprint 3 rollout](./sprint-3-implementation-review.md).
+**Delivery review — 9 September 2026:** Sprint 3 is deployed and remains CURRENT pending the Sales/Head Brewer field acceptance checklist. Sprint 2C is deployed and accepted except deferred prospect testing. Product foundation and publishing is the recommended next sprint (proposed Sprint 4); see [Product ownership review](./product-ownership-review.md). This status supersedes historical CURRENT/NEXT and rollout-pending notes below.
 
 This backlog is ordered around the architecture in [`docs/architecture.md`](./architecture.md). Prioritise work that strengthens the canonical Brewery Ops model and reduces direct coupling to ViewPlan/Sellar.
 
-## Current delivery order — 5 September 2026
+## Current delivery order — 9 September 2026
 
-**Sprint 2C is CURRENT**, including P2.4 and the commercial snapshot below. Sales Ops owns CRM relationship/workflow; ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial source facts. Sales consumes orders/commercial facts from the Account perspective through canonical services.
+**Sprint 3 is CURRENT for field acceptance.** Sprint 2C, including P2.4 and its commercial snapshot, is deployed; prospect testing remains deferred. Sales Ops owns CRM relationship/workflow; ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial source facts. Sales consumes orders/commercial facts from the Account perspective through canonical services.
 
 After Sales, prioritise **Product → Production → Inventory (P7)** before **Order Capture (P4) → Logistics (P5 operational ownership)**. Existing P-number identifiers are retained for references, not as the execution order. Read-only Account order history, tactical container views and discovery may continue without transferring authority. Operational ownership must be explicitly established before downstream order/logistics ownership moves; see [Architecture](./architecture.md).
 
@@ -435,6 +435,21 @@ Candidate durable attributes:
 
 This is the first operational ownership programme after Sales: Product → Production → Inventory, ahead of P4 Order Capture and P5 Logistics ownership. Replace bounded authorities deliberately, without cloning ViewPlan wholesale.
 
+### P7.0 Product foundation and publishing — recommended next sprint
+
+See [Product ownership review](./product-ownership-review.md) for the proposed Sprint 4 scope and field-level source handover.
+
+- Low-friction local beer draft creation; adopt existing canonical IDs and mappings.
+- Published Product specification and versioned marketing/artwork in Brewery Ops-owned storage.
+- Integrate local declarations and reviewed package-process isinglass defaults with exceptions.
+- Establish independent formulation revisions; structured recipe/calculation work follows.
+- Track launch readiness: artwork, recipe/specification, declarations, Untappd, Sellar listing and pump-clip order, with owners and evidence.
+- Stage and review ViewPlan/Sellar candidate data. Preserve source observations; never overwrite adopted local fields on routine sync.
+- Make Sellar's ongoing adapter availability-only and route every presentation consumer through the local publication.
+- Preserve ViewPlan production, stock, pricing, order and logistics authority until separately migrated.
+
+This delivers Product ownership rather than extending the Sales dietary editor into a second product system. P0.4 lifecycle/governance requirements remain relevant and must be reconciled with this adoption workflow.
+
 ### P7.1 Product/batch production model
 
 - Product.
@@ -542,7 +557,7 @@ P7.1a is promoted to the [Sprint 3 Take Off Planning proposal](./sprint-3-take-o
 
 ### Sprint 3 refinement — quantity grid and fermentation estimate
 
-Implemented on feature/take-off-quantity-grid: per-package quantity boxes, live carbonation groups/remaining litres before losses, atomic request updates and ViewPlan-derived estimated packaging dates. Product/Production/Inventory ownership, material requirements and packaging execution remain follow-on work. Application release and updated server-connector verification are pending; see Sprint 3 implementation review.
+Implemented on feature/take-off-quantity-grid: per-package quantity boxes, live carbonation groups/remaining litres before losses, atomic request updates and ViewPlan-derived estimated packaging dates. Product/Production/Inventory ownership, material requirements and packaging execution remain follow-on work. Application release is complete; remaining field checks are recorded in the Product ownership review.
 
 ### Sprint 3 — public Coming soon section
 
