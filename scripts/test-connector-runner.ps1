@@ -38,3 +38,7 @@ foreach($case in @('success','missing-credentials','module-failure','reporting-f
     if($case -eq 'module-failure' -and $events[-1].stage -ne 'Take Off Planning'){throw 'Failure stage lost'}
     Write-Host "Connector runner $case passed."
 }
+
+# Expected child failures must not become the CI step's final native exit code.
+# This is reached only after every scenario and assertion has passed.
+$global:LASTEXITCODE = 0
