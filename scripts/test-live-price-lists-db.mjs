@@ -1,4 +1,4 @@
-// Install PGlite separately and set PGLITE_MODULE_PATH to its module URL if needed.
+// Uses the repository-pinned PGlite runtime; PGLITE_MODULE_PATH is an optional override.
 const { PGlite } = await import(process.env.PGLITE_MODULE_PATH || '@electric-sql/pglite');
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';

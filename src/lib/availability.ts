@@ -8,10 +8,14 @@ export type AvailabilityItem={variantId:string;productId:string;productName:stri
 export type AvailabilityResult={items:AvailabilityItem[];observedAt:string|null;lastRefreshError:string|null};
 
 export async function getAccountAvailability(db:SupabaseClient,preference:AccountContainerPreference):Promise<AvailabilityResult>{
- const {data,error}=await db.from("availability_snapshots").select("available_quantity,source_system,source_observed_at,refreshed_at,variant:product_variants!inner(id,package_type,broad_format,allow_sale,product:products!inner(id,name,presentation:product_presentations(description,image_url,hero_image_url,abv,gluten_free,vegan,lactose_free)),package:packages!inner(id,name,broad_format,package_system,capacity_litres,lifecycle,procurement_mode))").gt("available_quantity",0);
+ const rows:JoinedRow[]=[];
+ for(let offset=0;;offset+=500){
+ const {data,error}=await db.from("availability_snapshots").select("available_quantity,source_system,source_observed_at,refreshed_at,variant:product_variants!inner(id,package_type,broad_format,allow_sale,product:products!inner(id,name,presentation:product_presentations(description,image_url,hero_image_url,abv,gluten_free,vegan,lactose_free)),package:packages!inner(id,name,broad_format,package_system,capacity_litres,lifecycle,procurement_mode))").gt("available_quantity",0).order("product_variant_id").range(offset,offset+499);
  if(error)throw error;
+ rows.push(...(data||[]) as unknown as JoinedRow[]);if((data||[]).length<500)break;
+ }
  const items:AvailabilityItem[]=[];
- for(const row of (data||[]) as unknown as JoinedRow[]){const variant=row.variant;const product=single(variant?.product);const pkg=single(variant?.package);if(!variant?.allow_sale||!product||!pkg||!packageAllowedForAccount(pkg,preference))continue;items.push({variantId:variant.id,productId:product.id,productName:product.name,packageType:variant.package_type,broadFormat:pkg.broad_format,package:pkg,availableQuantity:Number(row.available_quantity),sourceSystem:row.source_system,observedAt:row.source_observed_at,refreshedAt:row.refreshed_at,presentation:single(product.presentation)});}
+ for(const row of rows){const variant=row.variant;const product=single(variant?.product);const pkg=single(variant?.package);if(!variant?.allow_sale||!product||!pkg||!packageAllowedForAccount(pkg,preference))continue;items.push({variantId:variant.id,productId:product.id,productName:product.name,packageType:variant.package_type,broadFormat:pkg.broad_format,package:pkg,availableQuantity:Number(row.available_quantity),sourceSystem:row.source_system,observedAt:row.source_observed_at,refreshedAt:row.refreshed_at,presentation:single(product.presentation)});}
  const publications=await readPublishedProducts(db,items.map(i=>i.productId));
  for(const item of items){const spec=publications.find(p=>p.product_id===item.productId)?.specification;if(!spec)continue;item.specification=spec;item.productName=spec.name;item.presentation={description:spec.description,image_url:artworkUrl(item.productId,spec.artwork_path),hero_image_url:null,abv:spec.abv,gluten_free:spec.gluten_free,vegan:null,lactose_free:spec.lactose_free};}
  items.sort((a,b)=>a.productName.localeCompare(b.productName)||a.package.name.localeCompare(b.package.name));

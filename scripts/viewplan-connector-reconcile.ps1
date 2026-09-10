@@ -50,6 +50,7 @@ $run=@(Invoke-SupaPost "connector_sync_runs" @{
 $runId=if($run.Count){[string]$run[0].id}else{$null}
 
 try {
+    $global:LASTEXITCODE = 0
     & $childPath
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "$ScriptName exited with code $LASTEXITCODE" }
 

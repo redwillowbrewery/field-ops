@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Connector diagnostics stay on the server
+/scripts/connector-run-logs/
+/scripts/viewplan-scheduler-audit.json

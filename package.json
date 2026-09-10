@@ -14,7 +14,11 @@
     "availability:sync": "node scripts/sync-sellar-availability.mjs",
     "sales:audit": "node scripts/audit-viewplan-sales-runner.mjs",
     "sales:import": "node scripts/import-viewplan-sales.mjs",
-    "containers:import": "node scripts/import-viewplan-containers.mjs"
+    "containers:import": "node scripts/import-viewplan-containers.mjs",
+    "test:unit": "node --test scripts/*.test.mjs",
+    "test:db": "node scripts/run-db-tests.mjs",
+    "test": "npm run test:unit && npm run test:db",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -32,6 +36,10 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@electric-sql/pglite": "0.5.8"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

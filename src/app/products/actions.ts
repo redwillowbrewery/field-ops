@@ -57,7 +57,7 @@ export async function saveLaunchTask(f:FormData){
 
 export async function uploadArtwork(f:FormData){
  const db=await session();const product=value(f,"product");const revision=Number(value(f,"revision"));
- const {data:role,error:roleError}=await db.rpc("take_off_is_approver");
+ const {data:role,error:roleError}=await db.rpc("has_capability",{p_capability:"product_edit"});
  if(roleError||role!==true)done(product,"Head Brewer approval required");
  const file=f.get("artwork");
  if(!(file instanceof File)||file.size===0||file.size>800000)done(product,"Choose a PNG, JPEG or WebP image under 800 KB");
@@ -81,7 +81,7 @@ export async function linkViewPlan(f:FormData){
 }
 export async function adoptArtwork(f:FormData){
  const db=await session();const product=value(f,"product");const revision=Number(value(f,"revision"));
- const {data:role,error:roleError}=await db.rpc("take_off_is_approver");
+ const {data:role,error:roleError}=await db.rpc("has_capability",{p_capability:"product_edit"});
  if(roleError||role!==true)done(product,"Head Brewer approval required");
  const {data:w,error}=await db.from("product_workspaces").select("draft,revision,legacy_reviewed,legacy_information").eq("product_id",product).single();
  if(error||!w||w.revision!==revision)done(product,"Product changed; reload before adopting artwork");

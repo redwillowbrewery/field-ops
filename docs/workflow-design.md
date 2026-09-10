@@ -1,6 +1,6 @@
 # Brewery Ops Workflow Design Principles
 
-**Sprint 4 implementation — 9 September 2026:** Product foundation is CURRENT. Database migrations are applied and audited labels are staged; application deployment and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance still open; Sprint 2C prospect testing remains deferred. See [implementation and rollout](./sprint-4-implementation-review.md). This status supersedes historical CURRENT/NEXT notes below.
+**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
 
 Status: **Canonical product/workflow reference**
 
@@ -277,7 +277,7 @@ Brewery Ops should evolve as a **full-stack operational workflow system**, not a
 
 Modules remain useful boundaries for architecture, permissions and specialist work. They should not become navigation boundaries that users are forced to traverse to complete ordinary business tasks.
 
-## Live price-list sharing — current Sprint 2C
+## Live price-list sharing — delivered in Sprint 2C
 
 From Account or Quick Email, Sales can copy a live customer-price link or the generic standard-price link. Reuse, replace and revoke customer links within the same workflow. Customers open without a login, review decorated current availability and contact Sales to confirm an order. Generic links are explicitly labelled as standard prices. Email preparation remains distinct from sending; no Order Capture is introduced. See [live-list requirements](./sprint-2c-live-price-lists.md).
 
@@ -302,3 +302,7 @@ The Coming soon delivery now includes locally maintained allergen statements, ve
 The [Product ownership review](./product-ownership-review.md) records current implementation, missing model/workflow pieces and the agreed next Product foundation sprint. The target is locally published Product specifications, marketing assets, declarations, independent formulation revisions and launch readiness. Sellar's ongoing role becomes availability-only after a reviewed seed and explicit connector cutover; the Sprint 4 branch stops those writes while retaining the previous snapshot for adoption.
 
 Source observations and locally adopted fields must have separate ownership. Preserve ViewPlan operational production, stock, pricing, orders and logistics until their own gates pass. A Product draft must be creatable without external IDs or completed artwork/recipe; publication and launch readiness have their own checks. The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.
+
+## Product readiness and search refinement — 10 September 2026
+
+Find Products and unmapped ViewPlan records through server-side search and pages; direct Product links resolve by canonical ID independently of the picker. Launch readiness shows internal approvals from the actual current revisions; only external activities are manually completed. Product publication remains separate from production release, available stock and external channel setup.

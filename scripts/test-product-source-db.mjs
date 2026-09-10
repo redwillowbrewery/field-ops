@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
-const {PGlite}=await import(process.env.PGLITE_MODULE_PATH);
+const {PGlite}=await import(process.env.PGLITE_MODULE_PATH || '@electric-sql/pglite');
 const db=new PGlite();
 await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
 create table products(id uuid primary key);

@@ -1,5 +1,5 @@
 import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';
-const {PGlite}=await import(process.env.PGLITE_MODULE_PATH);const db=new PGlite();
+const {PGlite}=await import(process.env.PGLITE_MODULE_PATH || '@electric-sql/pglite');const db=new PGlite();
 const brewer='00000000-0000-0000-0000-000000000001',sales='00000000-0000-0000-0000-000000000002';
 await db.exec("create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create function take_off_is_approver() returns boolean language sql as $$select auth.uid()='"+brewer+"'::uuid$$;insert into auth.users values('"+brewer+"'),('"+sales+"');create table products(id uuid primary key default gen_random_uuid(),name text,abv numeric,active boolean,sellable boolean,business_exchange boolean);create table product_presentations(product_id uuid,description text,abv numeric,image_url text);create table product_information(product_id uuid,details jsonb);create table product_package_information(product_id uuid,package_id uuid,details jsonb);grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;");
 await db.exec("create table product_external_ids(product_id uuid,system text,external_id text,unique(system,external_id),unique(product_id,system));grant select on product_external_ids to authenticated;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id uuid,bucket_id text,name text);create function storage.foldername(text) returns text[] language sql as $$select string_to_array($1,'/')$$;create function save_product_information(uuid,uuid,integer,jsonb) returns void language plpgsql as $$begin return;end$$;");
@@ -59,4 +59,29 @@ await assert.rejects(db.query('select link_product_viewplan($1,$2,2)',[copied,'3
 assert.equal((await db.query('select count(*)::integer n from product_external_ids where product_id=$1',[copied])).rows[0].n,1);
 console.log('Reuse tests passed: new identity without inherited approval, recoverable publications, exact mappings and repeat rejection.');
 
+await db.exec('reset role; create table take_off_approvers(user_id uuid primary key);');
+await db.query('insert into take_off_approvers values($1)',[brewer]);
+await db.exec(readFileSync(new URL('../supabase/migrations/20260910100000_product_capabilities_readiness.sql',import.meta.url),'utf8'));
+await asUser(brewer);
+const readiness=()=>db.query('select * from product_launch_readiness($1)',[pid]).then(r=>r.rows);
+let ready=await readiness();
+assert.equal(ready.find(r=>r.kind==='formulation').complete,false);
+assert.equal(ready.find(r=>r.kind==='declarations').complete,false);
+const internal=(await db.query("select * from product_launch_tasks where product_id=$1 and kind='artwork'",[pid])).rows[0];
+await assert.rejects(db.query('select save_product_launch_task($1,$2,$3,$4,true,true,$5,$6)',[pid,internal.id,internal.revision,internal.title,'Brewer','tick']));
+await db.query('select approve_product_formulation($1,2)',[pid]);assert.equal((await readiness()).find(r=>r.kind==='formulation').complete,true);
+await db.query("select save_product_formulation($1,2,'Recipe 3','new ingredients')",[pid]);assert.equal((await readiness()).find(r=>r.kind==='formulation').complete,false);
+const newBeer=(await db.query("select start_product_workspace(null,'After migration') id")).rows[0].id;
+assert.equal((await db.query('select count(*)::integer n from product_launch_tasks where product_id=$1',[newBeer])).rows[0].n,3);
+await db.exec('reset role');
+await db.query("insert into user_capabilities(user_id,capability) values($1,'packaging_approve')",[sales]);
+await asUser(sales);assert.equal((await db.query('select take_off_is_approver() allowed')).rows[0].allowed,true);
+await assert.rejects(db.query("select start_product_workspace(null,'Packaging approver cannot edit')"));
+await assert.rejects(db.query('select publish_product_draft($1,$2)',[pid,(await workspace()).revision]));
+await assert.rejects(db.query("insert into user_capabilities values($1,'product_edit',now())",[sales]));
+await db.exec('reset role');await db.query("insert into user_capabilities(user_id,capability) values($1,'product_edit')",[sales]);
+await asUser(sales);await db.query("select start_product_workspace(null,'Editor draft')");
+await assert.rejects(db.query('select approve_product_formulation($1,3)',[pid]));
+await db.exec('reset role;set role anon');await assert.rejects(db.query('select * from product_launch_readiness($1)',[pid]));
+console.log('Capability and readiness checks passed: independent grants, no self-grant, revision-derived readiness, legacy task evidence retained.');
 await db.close();

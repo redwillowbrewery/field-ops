@@ -37,7 +37,7 @@ For a brand-new account only, an initial relationship status is seeded from View
 
 ## Sprint 2C requirement — overnight Account commercial snapshot
 
-Sprint 2C is CURRENT. The commercial module is implemented locally; apply migration `20260907100000_account_commercial_snapshot.sql` and deploy the new scripts before operational use. The customer connector now invokes `viewplan-account-commercial-sync.ps1` after every successful identity pass, including zero-change incremental runs. It performs a full commercial read and records separate `account_commercial` state.
+Sprint 2C commercial snapshots are deployed and field-checked. Migration `20260907100000_account_commercial_snapshot.sql` is applied. The customer connector now invokes `viewplan-account-commercial-sync.ps1` after every successful identity pass, including zero-change incremental runs. It performs a full commercial read and records separate `account_commercial` state.
 
 The [7 September implementation review](./sprint-2c-implementation-review.md) records source evidence, confirmed meanings, current delivery status and rollout checks. Balance uses `qryCustomerOutstandingTotalsAll.outstanding_total`; limit uses `tblCustomer.customer_max_credit`; currency is confirmed GBP. Status-list `allow_order` and `allow_order_dispatch` are distinct explicit source permissions. Sales may take an order while payment is required before dispatch; present this clearly rather than labelling every dispatch restriction as an ordering stop. `credit_amount` is credit on account, not the balance owed.
 
@@ -120,3 +120,11 @@ Run [audit-viewplan-product-labels.ps1](../scripts/audit-viewplan-product-labels
 ## Sprint 4 Product source and editorial boundary
 
 See [rollout](./sprint-4-implementation-review.md). The updated products runner performs a full label observation refresh before catalogue reconciliation. Unmapped source products wait for an exact match in Products, and routine Sellar refresh is availability-only. Published editorial names/ABV are protected while ViewPlan prices and operational facts continue. Install the updated server Product scripts after application release; migrations are already applied. The Windows overnight scheduling/session fault remains a separate open issue.
+
+## Scheduled-run repair and observability — 10 September 2026
+
+The server audit confirmed a Password/non-interactive task could not attach to Toby’s interactive Access session. The existing task now uses interactive logon and the 32-bit all-modules runner; its Task Scheduler Run completed every configured module on 10 September. Keep the user logged in and ViewPlan authenticated. The next 02:00 automatic trigger remains an acceptance check.
+
+After the architecture-review release, apply the two documented migrations before installing the new connector bundle. Add `-Scheduled` to the existing task arguments so the invocation is identified correctly. The runner writes one JSONL file per invocation to `connector-run-logs` beside the scripts, with a run ID, stage and error type; it excludes credential values and customer/source rows. Preserve logs for investigation and manage their retention operationally. The directory must be writable by the task user. Database reporting failures stop the runner with a nonzero exit and a local log. Do not create a duplicate task.
+
+The shared health projection includes Take Off, label observations and complete connector runs. A zero reconciliation placeholder is displayed as an unknown count. Successful observation time remains separate from attempted/run time. See [review fixes](./architecture-review-fixes.md).

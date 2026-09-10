@@ -6,11 +6,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ modules: [] }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from("connector_sync_state")
-    .select("module,last_success_at,last_error,last_row_count")
-    .eq("source_system", "viewplan")
-    .order("module", { ascending: true });
+  const { data, error } = await supabase.rpc("connector_health");
 
   if (error) return NextResponse.json({ modules: [], error: error.message }, { status: 500 });
   return NextResponse.json({ modules: data ?? [] });

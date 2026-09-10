@@ -1,8 +1,6 @@
 # Brewery Ops Backlog
 
-**Sprint 4 implementation — 9 September 2026:** Product foundation is CURRENT. Database migrations are applied and audited labels are staged; application deployment and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance still open; Sprint 2C prospect testing remains deferred. See [implementation and rollout](./sprint-4-implementation-review.md). This status supersedes historical CURRENT/NEXT notes below.
-
-**Delivery review — 9 September 2026:** Sprint 3 is deployed and remains CURRENT pending the Sales/Head Brewer field acceptance checklist. Sprint 2C is deployed and accepted except deferred prospect testing. Product foundation and publishing is the agreed next sprint (Sprint 4); see [Product ownership review](./product-ownership-review.md). This status supersedes historical CURRENT/NEXT and rollout-pending notes below.
+**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
 
 This backlog is ordered around the architecture in [`docs/architecture.md`](./architecture.md). Prioritise work that strengthens the canonical Brewery Ops model and reduces direct coupling to ViewPlan/Sellar.
 
@@ -437,7 +435,7 @@ Candidate durable attributes:
 
 This is the first operational ownership programme after Sales: Product → Production → Inventory, ahead of P4 Order Capture and P5 Logistics ownership. Replace bounded authorities deliberately, without cloning ViewPlan wholesale.
 
-### P7.0 Product foundation and publishing — agreed next sprint
+### P7.0 Product foundation and publishing — Sprint 4, current
 
 See [Product ownership review](./product-ownership-review.md) for the agreed Sprint 4 scope and field-level source handover.
 
@@ -549,9 +547,9 @@ When adding a new backlog item, identify:
 
 Do not prioritise a shortcut that makes ViewPlan/Sellar harder to replace unless it is explicitly documented as temporary technical debt.
 
-### P2.4b Live decorated price lists — CURRENT Sprint 2C
+### P2.4b Live decorated price lists — delivered in Sprint 2C
 
-Implemented; migration applied, app deployment and Sales field pass pending. Generic standard trade prices and revocable Account-specific links reuse canonical effective pricing, package eligibility and availability. Account and Quick Email provide sharing controls; customers need no login. Source authority is unchanged. See [requirements and acceptance](./sprint-2c-live-price-lists.md).
+Deployed and Sales checks accepted. Generic standard trade prices and revocable Account-specific links reuse canonical effective pricing, package eligibility and availability. Account and Quick Email provide sharing controls; customers need no login. Source authority is unchanged. See [requirements and acceptance](./sprint-2c-live-price-lists.md).
 
 ### Next delivery slice — scoped 8 September 2026
 
@@ -572,3 +570,7 @@ The Coming soon delivery now includes locally maintained allergen statements, ve
 ## Sprint 4 detailed requirements
 
 The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.
+
+## Architecture review implementation — 10 September 2026
+
+R1–R7 are addressed on the Sprint 4 branch: validated availability traversal, durable runner logging, paged Product/source search, derived launch readiness, shared connector health, independent capabilities and reproducible test/CI commands. See [rollout and validation](./architecture-review-fixes.md). Preserve the automatic overnight-run and Product field acceptance gates; implementation completion does not close them.

@@ -11,6 +11,7 @@ function Run-Step([string]$label,[string]$scriptName) {
     Write-Host "--- $label ---"
     $path = Join-Path $scriptRoot $scriptName
     if (-not (Test-Path $path)) { throw "Product sync step not found: $path" }
+    $global:LASTEXITCODE = 0
     & $path -SupabaseUrl $SupabaseUrl -ServiceRoleKey $ServiceRoleKey
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "$label exited with code $LASTEXITCODE" }
 }

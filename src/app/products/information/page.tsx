@@ -11,7 +11,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{product
  const q=await searchParams;const db=await createClient();const {data:{user}}=await db.auth.getUser();if(!user)redirect("/login");
  const [catalogue,packages,role]=await Promise.all([
   db.from("products").select("id,name").eq("active",true).eq("business_exchange",false).order("name"),
-  db.from("packages").select("id,name").eq("active",true).order("name"),db.rpc("take_off_is_approver")
+  db.from("packages").select("id,name").eq("active",true).order("name"),db.rpc("has_capability",{p_capability:"product_edit"})
  ]);
  if(catalogue.error||packages.error||role.error)throw new Error("Product information is unavailable");
  const product=catalogue.data.find(p=>p.id===q.product)||catalogue.data[0];

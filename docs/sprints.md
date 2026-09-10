@@ -1,8 +1,6 @@
 # Brewery Ops Sprint & Branch Roadmap
 
-**Sprint 4 implementation — 9 September 2026:** Product foundation is CURRENT. Database migrations are applied and audited labels are staged; application deployment and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance still open; Sprint 2C prospect testing remains deferred. See [implementation and rollout](./sprint-4-implementation-review.md). This status supersedes historical CURRENT/NEXT notes below.
-
-**Delivery review — 9 September 2026:** Sprint 3 is deployed and remains CURRENT pending the Sales/Head Brewer field acceptance checklist. Sprint 2C is deployed and accepted except deferred prospect testing. Product foundation and publishing is the agreed next sprint (Sprint 4); see [Product ownership review](./product-ownership-review.md). This status supersedes historical CURRENT/NEXT and rollout-pending notes below.
+**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
 
 This document turns [`architecture.md`](./architecture.md) and [`backlog.md`](./backlog.md) into bounded delivery increments.
 
@@ -415,7 +413,7 @@ At the end of each sprint:
 
 ## Current recommendation
 
-**Sprint 3 field acceptance remains open.** Preserve deployed Sprint 2C prospect/Interaction/follow-up and commercial behavior; its prospect test remains deferred. Finish the shared planning field pass, then prioritise the agreed Product foundation scope above. After Sales, prioritise Product → Production → Inventory before Order Capture and Logistics. Configurable primary/default Sales, Production and Logistics workspaces remain switchable views over canonical data, separate from permissions; see [Architecture](./architecture.md).
+**Sprint 4 is current; Sprint 3 field acceptance remains open.** Preserve deployed Sprint 2C prospect/Interaction/follow-up and commercial behavior; its prospect test remains deferred. Finish the shared planning field pass alongside Product adoption and the architecture-review fixes. After Sales, prioritise Product → Production → Inventory before Order Capture and Logistics. Configurable primary/default Sales, Production and Logistics workspaces remain switchable views over canonical data, separate from permissions; see [Architecture](./architecture.md).
 Sprint 2C also includes [live decorated price lists](./sprint-2c-live-price-lists.md): a generic standard-price URL and revocable Account-price links, shared from Account and Quick Email. This is read-only Sales presentation, with no ordering or payment capture.
 
 ### Sprint 3 delivery refinement — 8 September 2026
