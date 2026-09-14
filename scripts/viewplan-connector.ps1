@@ -38,7 +38,7 @@ function Save-RunState([string]$status,[string]$errorCode=$null) {
     $body=@{id=$runId;source_system='viewplan';invocation=$invocation;requested_module=$Module;status=$status;started_at=$startedAt;stage=$stage;error_code=$errorCode}
     if ($status -ne 'running') { $body.completed_at=[DateTime]::UtcNow.ToString('o') }
     $json=ConvertTo-Json -InputObject $body -Compress
-    Invoke-RestMethod -Method Post -Uri ($env:NEXT_PUBLIC_SUPABASE_URL.TrimEnd('/')+'/rest/v1/connector_runner_runs?on_conflict=id') -Headers @{apikey=$env:SUPABASE_SERVICE_ROLE_KEY;Prefer='resolution=merge-duplicates,return=minimal'} -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 30 | Out-Null
+    Invoke-RestMethod -UserAgent "RedWillow-BreweryOps-ViewPlan-Connector/1.2" -Method Post -Uri ($env:NEXT_PUBLIC_SUPABASE_URL.TrimEnd('/')+'/rest/v1/connector_runner_runs?on_conflict=id') -Headers @{apikey=$env:SUPABASE_SERVICE_ROLE_KEY;Prefer='resolution=merge-duplicates,return=minimal'} -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 30 | Out-Null
 }
 try {
     Write-RunEvent 'started'

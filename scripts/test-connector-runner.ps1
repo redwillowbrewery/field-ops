@@ -6,7 +6,8 @@ if($Scenario){
     $env:SUPABASE_SERVICE_ROLE_KEY='FAKE_TEST_SECRET_NEVER_LOG'
     if($Scenario -eq 'missing-credentials'){$env:SUPABASE_SERVICE_ROLE_KEY=$null}
     function Invoke-RestMethod {
-        param($Method,$Uri,$Headers,$ContentType,$Body,$TimeoutSec)
+        param($Method,$Uri,$Headers,$ContentType,$Body,$TimeoutSec,$UserAgent)
+        if($UserAgent -ne 'RedWillow-BreweryOps-ViewPlan-Connector/1.2'){throw 'Missing service User-Agent'}
         if(-not $Uri.StartsWith('https://example.invalid/')){throw 'Unexpected network target'}
         $state=[Text.Encoding]::UTF8.GetString($Body)|ConvertFrom-Json
         $state|ConvertTo-Json -Compress|Add-Content -LiteralPath (Join-Path $Fixture 'remote.jsonl')
