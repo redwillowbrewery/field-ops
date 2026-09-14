@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 
 type SyncModule = {
   module: string;
+  status: string;
+  invocation: string | null;
+  last_attempt_at: string | null;
   last_success_at: string | null;
   last_error: string | null;
   last_row_count: number | null;
@@ -29,7 +32,7 @@ export function SyncStatusFooter() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [publicPriceList]);
+  }, [publicPriceList, pathname]);
 
   if (publicPriceList || !modules.length) return null;
 
@@ -38,11 +41,11 @@ export function SyncStatusFooter() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-semibold text-slate-600">ViewPlan data</span>
         {modules.map((item) => {
-          const failed = Boolean(item.last_error);
-          const stale = !item.last_success_at || (loadedAt !== null && loadedAt - new Date(item.last_success_at).getTime() > 36 * 60 * 60 * 1000);
+          const failed = Boolean(item.last_error) || item.status === "failed";
+          const stale = item.status === "stale" || !item.last_success_at || (loadedAt !== null && loadedAt - new Date(item.last_success_at).getTime() > 36 * 60 * 60 * 1000);
           return (
-            <span key={item.module} className={failed ? "text-red-600" : stale ? "text-amber-600" : "text-slate-500"} title={item.last_error || undefined}>
-              <span className="capitalize">{item.module}</span>: {item.last_success_at ? formatSyncTime(item.last_success_at) : "never"}{failed ? " · error" : ""}
+            <span key={item.module} className={failed ? "text-red-600" : stale ? "text-amber-600" : "text-slate-500"} title={[item.last_error,item.invocation,item.last_attempt_at?"Last attempt: "+formatSyncTime(item.last_attempt_at):null].filter(Boolean).join(" · ")}>
+              <span className="capitalize">{item.module}</span>: {item.last_success_at ? formatSyncTime(item.last_success_at) : "never"}{failed ? " · error" : item.status === "running" ? " · running" : stale ? " · stale" : ""}
             </span>
           );
         })}

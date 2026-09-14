@@ -1,6 +1,6 @@
 # Brewery Ops Sprint & Branch Roadmap
 
-**Delivery update — 8 September 2026:** Sprint 3 Take Off Planning is in implementation; migration applied, first server sync and app rollout pending. Sprint 2C is deployed and accepted except deferred prospect testing. This supersedes earlier CURRENT/NEXT delivery labels below. See [Sprint 3 rollout](./sprint-3-implementation-review.md).
+**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
 
 This document turns [`architecture.md`](./architecture.md) and [`backlog.md`](./backlog.md) into bounded delivery increments.
 
@@ -298,11 +298,15 @@ This workflow also leaves a clean insertion point for future Order Capture: the 
 
 This replaces the former Sprint 3/4/5/6+ delivery order. Future sprint numbers are to be assigned during planning. ViewPlan retains operational authority until each bounded replacement is accepted. Establish Product, Production and Inventory operational ownership before Brewery Ops-owned Order Capture or Logistics. Read-only Account order consumption and supporting sales analysis do not transfer order authority.
 
-## Next sprint proposal — Sprint 3: Shared Take Off Planning
+## Current sprint — Sprint 3: Shared Take Off Planning
 
-See [Sprint 3 scope](./sprint-3-take-off-planning.md). Start with a read-only audit of ViewPlan tank contents and brew planning, then deliver the shared Take Off view, Sales packaging requirements and Production review. Only the spreadsheet's Take Off Planning tab is in scope. This advances canonical Product/Planning foundations without transferring operational authority. The broader ownership sequence below remains the long-term direction.
+See [Sprint 3 scope](./sprint-3-take-off-planning.md). The shared Take Off workflow, connector, quantity grid and public Coming soon slice are deployed. Complete the field acceptance in the [Product ownership review](./product-ownership-review.md); the spreadsheet's Take Off Planning tab remains the workflow reference. ViewPlan retains operational production authority.
 
-## First post-Sales work — Brewery Ops operational core
+## Agreed next sprint — Sprint 4: Product foundation and publishing
+
+One Product workspace for quick beer creation, reviewed source adoption, versioned artwork/descriptions/specification, package-specific declarations and launch readiness. Establish formulation revision records now; deliver the full recipe/calculation builder separately. Complete the connector handover so Sellar supplies availability only, while ViewPlan continues operational facts and pricing. This is agreed scope, not a completed cutover. See [detailed review and acceptance](./product-ownership-review.md).
+
+## Following Product foundation — Brewery Ops operational core
 
 After the CRM/field workflows are stable, begin replacing ViewPlan bounded authorities deliberately rather than cloning ViewPlan wholesale.
 
@@ -409,12 +413,12 @@ At the end of each sprint:
 
 ## Current recommendation
 
-**Sprint 2C is CURRENT.** Preserve its existing prospect/Interaction/follow-up scope and deliver the contained ViewPlan commercial snapshot. Review remaining 2B field feedback without reopening its scope. After Sales, prioritise Product → Production → Inventory before Order Capture and Logistics. Configurable primary/default Sales, Production and Logistics workspaces remain switchable views over canonical data, separate from permissions; see [Architecture](./architecture.md).
+**Sprint 4 is current; Sprint 3 field acceptance remains open.** Preserve deployed Sprint 2C prospect/Interaction/follow-up and commercial behavior; its prospect test remains deferred. Finish the shared planning field pass alongside Product adoption and the architecture-review fixes. After Sales, prioritise Product → Production → Inventory before Order Capture and Logistics. Configurable primary/default Sales, Production and Logistics workspaces remain switchable views over canonical data, separate from permissions; see [Architecture](./architecture.md).
 Sprint 2C also includes [live decorated price lists](./sprint-2c-live-price-lists.md): a generic standard-price URL and revocable Account-price links, shared from Account and Quick Email. This is read-only Sales presentation, with no ordering or payment capture.
 
 ### Sprint 3 delivery refinement — 8 September 2026
 
-feature/take-off-quantity-grid adds the low-friction packaging quantity grid and product fermentation-based packaging estimates. The database migration is applied; application changes are not yet deployed. Keep source authority, Head Brewer approvals and completed Sprint 2C work intact. See the Sprint 3 implementation review for remaining field acceptance.
+feature/take-off-quantity-grid adds the low-friction packaging quantity grid and product fermentation-based packaging estimates. The database migration is applied and the application is deployed; field acceptance remains distinct. Keep source authority, Head Brewer approvals and completed Sprint 2C work intact. See the Sprint 3 implementation review for remaining field acceptance.
 
 ### Sprint 3 — live Coming soon price-list slice
 
@@ -423,3 +427,7 @@ feature/price-list-coming-soon delivers the agreed public in-tank preview on gen
 ### Product declarations on price lists — 9 September 2026
 
 The Coming soon delivery now includes locally maintained allergen statements, vegan/gluten-free/lactose-free flags and fined/unfined status. Sales → Product information provides beer defaults and package overrides, confirmed by the Head Brewer. Price-list formats show effective declarations; unconfirmed values remain unknown. See the Sprint 3 implementation review.
+
+## Sprint 4 detailed requirements
+
+The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.

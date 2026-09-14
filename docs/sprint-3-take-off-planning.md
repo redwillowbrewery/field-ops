@@ -1,6 +1,6 @@
-# Sprint 3 proposal — Shared Take Off Planning
+# Sprint 3 — Shared Take Off Planning
 
-Scoped 8 September 2026. CURRENT implementation sprint; local workflow implemented, migration applied, server sync and app rollout pending. Sprint 2C is deployed and user-accepted apart from deferred prospect testing. This is a useful workflow across Product and Planning while ViewPlan retains operational authority, rather than a prerequisite full Product module build.
+Reviewed 9 September 2026. CURRENT sprint for field acceptance; workflow, migrations, server sync and application rollout are complete. Sprint 2C is deployed and user-accepted apart from deferred prospect testing. This is a useful workflow across Product and Planning while ViewPlan retains operational authority, rather than a prerequisite full Product module build.
 
 ## Business outcome and reference
 
@@ -66,9 +66,9 @@ Deliver one end-to-end workflow; intermediate milestones do not constitute sprin
 
 Recipe design/water treatment; full beer authoring and launch checklist; materials stock/BOM/purchasing automation (P7.1b); operational packaging execution; stock ledger; automatic allocation; customer orders; Logistics; ViewPlan writes. Retain these as follow-on work, not prerequisites to this slice. The accepted take-off quantities will provide the foundation for later packaging-material demand.
 
-## Decisions still needed after audit
+## Remaining operational confirmation
 
-Agree planning horizon, refresh cadence, package/loss rules, who can approve the split, and how changes after Production agreement are reviewed. Use evidence from the source and a short Sales/Production walkthrough rather than inventing these rules.
+The implemented horizon choices are 2/4/8/12 weeks; stale approval threshold is 24 hours. Head Brewer approval and source-change invalidation are implemented. Confirm the server cadence, representative package/loss assumptions and end-to-end Sales/Production use during the field pass. Do not treat deployment as acceptance.
 
 See [implementation and rollout](./sprint-3-implementation-review.md). Confirmed: tank 1 is staging; Head Brewer approval belongs to toby@redwillowbrewery.com. Source lineage is available for some tasks; exact manual association covers missing lineage.
 
@@ -99,3 +99,7 @@ Confirmed direction: Brewery Ops owns published allergen, dietary and fining dec
 A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
 
 Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.
+
+## Sprint boundary after Product review — 9 September 2026
+
+Retain the shared planning outcome and close the field checks in the [Product ownership review](./product-ownership-review.md). Product authoring, versioned marketing/recipe records, launch readiness, package-process defaults and the Sellar editorial cutover belong to the recommended next Product foundation sprint, not unbounded additions to this one. Existing local declarations and Coming soon are implemented starting points to preserve.

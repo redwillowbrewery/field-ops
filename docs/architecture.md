@@ -1,5 +1,7 @@
 # Brewery Ops Architecture
 
+**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
+
 Status: **Canonical design reference**
 
 This document defines the architectural principles and core business concepts for Brewery Ops. When implementation convenience conflicts with this document, prefer the architecture and update this document deliberately if the business model has genuinely changed.
@@ -12,7 +14,7 @@ Brewery Ops must model brewery business concepts in its own canonical data model
 
 ### Transitional ownership — agreed 5 September 2026
 
-Sprint 2C is **CURRENT**. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
+Sprint 2C is deployed; Sprint 3 field acceptance remains open. Sales Ops owns CRM relationship and workflow: canonical Accounts/prospects, CRM Contacts, Interactions, Notes, Tasks, Appointments and weekly sales activity. ViewPlan remains the operational authority for products, production, inventory, orders and logistics for now. Sales Ops consumes ViewPlan orders and account commercial facts from the Account perspective through canonical data/services; importing those facts does not transfer operational ownership.
 
 The target canonical Brewery Ops model remains the architecture direction, not a claim that every operational authority has already migrated. Existing catalogue governance and Sellar availability observations do not constitute Product/Production/Inventory operational ownership.
 
@@ -360,10 +362,26 @@ E-Cask (40 L), Firkin (41 L), Pin (20 L) and Pin (Flat Bottom) (20 L) are enable
 
 A service-role-only price_list_coming_soon RPC reads the current Take Off source and approval context in one database snapshot. Its allow-listed result contains product presentation, approved canonical Packages and provisional dates; internal workflow records never leave this boundary. Public rendering reuses the canonical effective-price and Account package-restriction policies. This projection supplies neither stock availability nor production release authority. Invalidated approvals stop advertising formats; stale/failed source data is suppressed.
 
-## Locally maintained product information — 9 September 2026
+## Legacy Product information — Sprint 3
+
+This section records the deployed per-Package editor. Adopted Products use Sprint 4 family declarations and publications, described below.
 
 Confirmed direction: Brewery Ops owns published allergen, dietary and fining declarations, with beer defaults and per-Package overrides. This is a bounded presentation capability; ViewPlan still owns operational Product/Production/Inventory facts. Sales → Product information lets staff read the declarations and the Head Brewer confirm changes. Each write validates fields, checks the previous revision and records an audit event.
 
 A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
 
 Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.
+
+## Product ownership transition — review 9 September 2026
+
+The [Product ownership review](./product-ownership-review.md) records current implementation, missing model/workflow pieces and the agreed next Product foundation sprint. The target is locally published Product specifications, marketing assets, declarations, independent formulation revisions and launch readiness. Sellar's ongoing role becomes availability-only after a reviewed seed and explicit connector cutover; the Sprint 4 branch stops those writes while retaining the previous snapshot for adoption.
+
+Source observations and locally adopted fields must have separate ownership. Preserve ViewPlan operational production, stock, pricing, orders and logistics until their own gates pass. A Product draft must be creatable without external IDs or completed artwork/recipe; publication and launch readiness have their own checks. The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.
+
+## Review hardening — 10 September 2026
+
+Product editing, Product publication/formulation approval and packaging approval are independent capabilities (`product_edit`, `product_publish`, `packaging_approve`). Existing Head Brewer grants are copied once; later grants use `user_capabilities`, not the legacy planning role table. Workspace preference never grants access. Product RPCs and storage policies enforce these permissions.
+
+Launch readiness is a canonical projection: approved current artwork, approval of the latest formulation, current reviewed publication, and external tasks with owner/evidence. A new formulation invalidates derived readiness automatically. External checklist ticks cannot grant an internal approval, and readiness does not establish production release or stock availability.
+
+A connector publishes absence only after a validated complete source traversal. Invalid rows, malformed pages, duplicate identities or traversal exhaustion preserve the prior availability snapshot. Scheduled-run identity and local preflight logs complement per-module successful observation clocks.

@@ -1,5 +1,5 @@
 
-const {PGlite}=await import(process.env.PGLITE_MODULE_PATH);
+const {PGlite}=await import(process.env.PGLITE_MODULE_PATH || '@electric-sql/pglite');
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const db=new PGlite();

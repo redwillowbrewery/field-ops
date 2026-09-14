@@ -1,12 +1,12 @@
 # Brewery Ops Backlog
 
-**Delivery update — 8 September 2026:** Sprint 3 Take Off Planning is in implementation; migration applied, first server sync and app rollout pending. Sprint 2C is deployed and accepted except deferred prospect testing. This supersedes earlier CURRENT/NEXT delivery labels below. See [Sprint 3 rollout](./sprint-3-implementation-review.md).
+**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
 
 This backlog is ordered around the architecture in [`docs/architecture.md`](./architecture.md). Prioritise work that strengthens the canonical Brewery Ops model and reduces direct coupling to ViewPlan/Sellar.
 
-## Current delivery order — 5 September 2026
+## Current delivery order — 9 September 2026
 
-**Sprint 2C is CURRENT**, including P2.4 and the commercial snapshot below. Sales Ops owns CRM relationship/workflow; ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial source facts. Sales consumes orders/commercial facts from the Account perspective through canonical services.
+**Sprint 3 field acceptance remains open.** Sprint 2C, including P2.4 and its commercial snapshot, is deployed; prospect testing remains deferred. Sales Ops owns CRM relationship/workflow; ViewPlan remains authoritative for products, production, inventory, orders, logistics and account commercial source facts. Sales consumes orders/commercial facts from the Account perspective through canonical services.
 
 After Sales, prioritise **Product → Production → Inventory (P7)** before **Order Capture (P4) → Logistics (P5 operational ownership)**. Existing P-number identifiers are retained for references, not as the execution order. Read-only Account order history, tactical container views and discovery may continue without transferring authority. Operational ownership must be explicitly established before downstream order/logistics ownership moves; see [Architecture](./architecture.md).
 
@@ -435,6 +435,21 @@ Candidate durable attributes:
 
 This is the first operational ownership programme after Sales: Product → Production → Inventory, ahead of P4 Order Capture and P5 Logistics ownership. Replace bounded authorities deliberately, without cloning ViewPlan wholesale.
 
+### P7.0 Product foundation and publishing — Sprint 4, current
+
+See [Product ownership review](./product-ownership-review.md) for the agreed Sprint 4 scope and field-level source handover.
+
+- Low-friction local beer draft creation; adopt existing canonical IDs and mappings.
+- Published Product specification and versioned marketing/artwork in Brewery Ops-owned storage.
+- Implement Beer-level gluten-free status and Beer + Packaging family declarations using the [agreed rules](./sprint-4-product-foundation.md); audit ViewPlan Label Text and preserve reviewed local values.
+- Establish independent formulation revisions; structured recipe/calculation work follows.
+- Track launch readiness: artwork, recipe/specification, declarations, Untappd, Sellar listing and pump-clip order, with owners and evidence.
+- Stage and review ViewPlan/Sellar candidate data. Preserve source observations; never overwrite adopted local fields on routine sync.
+- Make Sellar's ongoing adapter availability-only and route every presentation consumer through the local publication.
+- Preserve ViewPlan production, stock, pricing, order and logistics authority until separately migrated.
+
+This delivers Product ownership rather than extending the Sales dietary editor into a second product system. P0.4 lifecycle/governance requirements remain relevant and must be reconciled with this adoption workflow.
+
 ### P7.1 Product/batch production model
 
 - Product.
@@ -532,9 +547,9 @@ When adding a new backlog item, identify:
 
 Do not prioritise a shortcut that makes ViewPlan/Sellar harder to replace unless it is explicitly documented as temporary technical debt.
 
-### P2.4b Live decorated price lists — CURRENT Sprint 2C
+### P2.4b Live decorated price lists — delivered in Sprint 2C
 
-Implemented; migration applied, app deployment and Sales field pass pending. Generic standard trade prices and revocable Account-specific links reuse canonical effective pricing, package eligibility and availability. Account and Quick Email provide sharing controls; customers need no login. Source authority is unchanged. See [requirements and acceptance](./sprint-2c-live-price-lists.md).
+Deployed and Sales checks accepted. Generic standard trade prices and revocable Account-specific links reuse canonical effective pricing, package eligibility and availability. Account and Quick Email provide sharing controls; customers need no login. Source authority is unchanged. See [requirements and acceptance](./sprint-2c-live-price-lists.md).
 
 ### Next delivery slice — scoped 8 September 2026
 
@@ -542,7 +557,7 @@ P7.1a is promoted to the [Sprint 3 Take Off Planning proposal](./sprint-3-take-o
 
 ### Sprint 3 refinement — quantity grid and fermentation estimate
 
-Implemented on feature/take-off-quantity-grid: per-package quantity boxes, live carbonation groups/remaining litres before losses, atomic request updates and ViewPlan-derived estimated packaging dates. Product/Production/Inventory ownership, material requirements and packaging execution remain follow-on work. Application release and updated server-connector verification are pending; see Sprint 3 implementation review.
+Implemented on feature/take-off-quantity-grid: per-package quantity boxes, live carbonation groups/remaining litres before losses, atomic request updates and ViewPlan-derived estimated packaging dates. Product/Production/Inventory ownership, material requirements and packaging execution remain follow-on work. Application release is complete; remaining field checks are recorded in the Product ownership review.
 
 ### Sprint 3 — public Coming soon section
 
@@ -551,3 +566,11 @@ Implemented: generic and Account price-list links expose current in-tank beers, 
 ### Product declarations on price lists — 9 September 2026
 
 The Coming soon delivery now includes locally maintained allergen statements, vegan/gluten-free/lactose-free flags and fined/unfined status. Sales → Product information provides beer defaults and package overrides, confirmed by the Head Brewer. Price-list formats show effective declarations; unconfirmed values remain unknown. See the Sprint 3 implementation review.
+
+## Sprint 4 detailed requirements
+
+The agreed [Sprint 4 requirements](./sprint-4-product-foundation.md) define Beer-level gluten-free status and base allergens, plus Beer + Packaging family fining/vegan declarations. Families are Cask (E-Cask, Firkin, Pin, Flat Bottom Pin) and Keg & Can. Keg & Can are always unfined under current policy. Imported Cask defaults to fined unless audited Label Text indicates otherwise; new local beers require an explicit Cask decision before publication. Preserve confirmed values and review process-specific allergen effects separately. ViewPlan label text is import evidence, not the canonical product structure. These rules are implemented on the Sprint 4 branch; see the implementation review for deployment and adoption status.
+
+## Architecture review implementation — 10 September 2026
+
+R1–R7 are addressed on the Sprint 4 branch: validated availability traversal, durable runner logging, paged Product/source search, derived launch readiness, shared connector health, independent capabilities and reproducible test/CI commands. See [rollout and validation](./architecture-review-fixes.md). Preserve the automatic overnight-run and Product field acceptance gates; implementation completion does not close them.

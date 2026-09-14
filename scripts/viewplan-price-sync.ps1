@@ -255,31 +255,8 @@ foreach ($sourceProduct in $productRows) {
     $canonicalStatus = if ($sourceProduct.active) { "active" } else { "inactive" }
 
     if (-not $productId) {
-        $created = @(Invoke-SupaPost "products" @{
-            name = $sourceProduct.beer_name
-            abv = $sourceProduct.abv
-            status = $canonicalStatus
-            active = $sourceProduct.active
-            sellable = $sourceProduct.sellable
-            business_exchange = $sourceProduct.business_exchange
-            source_updated_at = $sourceUpdated
-        })
-        if ($created.Count -ne 1) { throw "Could not create canonical product for ViewPlan brew_type_id $externalId" }
-        $candidateProductId = [string]$created[0].id
-
-        try {
-            Invoke-SupaPost "product_external_ids?on_conflict=system%2Cexternal_id" @{
-                product_id = $candidateProductId
-                system = "viewplan"
-                external_id = $externalId
-            } "resolution=ignore-duplicates,return=minimal" | Out-Null
-        }
-        catch {
-            throw "Could not map ViewPlan product $externalId after creating candidate product $candidateProductId.`n$($_.Exception.Message)"
-        }
-
-        $productId = Get-ExistingProductMapping $externalId
-        if (-not $productId) { throw "ViewPlan product mapping $externalId was not readable after insert." }
+        Write-Warning "ViewPlan product $externalId needs an exact mapping in Products; skipped without creating a duplicate."
+        continue
     }
 
     Invoke-SupaPatch "products?id=eq.$productId" @{
@@ -305,6 +282,7 @@ foreach ($row in $rows) {
     $variantExternalId = "$($row.brew_type_id)|$($row.packaging_type)"
     $variantId = Get-ExistingVariantMapping $variantExternalId
     $productId = $productMap[[string]$row.brew_type_id]
+    if (-not $productId) { continue }
     $variantBody = @{
         product_id = $productId
         broad_format = BroadFormat $row.packaging_type
@@ -358,6 +336,7 @@ for ($n = 1; $n -le 10; $n++) {
 $priceRows = New-Object System.Collections.Generic.List[object]
 foreach ($row in $rows) {
     $variantId = $variantMap["$($row.brew_type_id)|$($row.packaging_type)"]
+    if (-not $variantId) { continue }
     for ($n = 1; $n -le 10; $n++) {
         $price = $row."price$n"
         if ($null -eq $price) { continue }

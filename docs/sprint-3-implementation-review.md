@@ -1,6 +1,6 @@
 # Sprint 3 implementation and rollout — 8 September 2026
 
-Implemented on feature/take-off-planning. Sprint 2C is already on origin/main at 81b8a0f. Sprint 3 application deployment and first ViewPlan-server sync remain pending.
+Current status — 9 September 2026: Sprint 3 and its refinements are deployed on main through c979129; the first ViewPlan-server sync succeeded. Sprint 2C is on main at 81b8a0f. Remaining user field acceptance and the next Product ownership proposal are recorded in [Product ownership review](./product-ownership-review.md). Earlier dated rollout notes below are historical.
 
 ## Delivered
 
@@ -92,3 +92,7 @@ Confirmed direction: Brewery Ops owns published allergen, dietary and fining dec
 A missing override inherits the beer default; explicit unknown suppresses that default for the package. Store the confirmed allergen statement independently of vegan, gluten-free, lactose-free and fined/unfined status. Do not infer allergens from free-from flags, vegan status from fining, or fining from vegan status. New records start unconfirmed. The Sellar audit found package-level dietary differences, so source flags are not copied into reviewed local declarations. Source refreshes cannot overwrite these separate local tables.
 
 Available and approved Coming soon formats display their effective package information on generic, customer-specific and internal decorated lists. Before the upcoming packaging format is confirmed, dietary details remain unconfirmed. Existing pricing, package restrictions, bearer-link privacy and approval rules remain intact. Tables: product_information and product_package_information; audit: product_information_events; migration: 20260909090000_product_information.sql. No ViewPlan connector update is required.
+
+## Review checkpoint — 9 September 2026
+
+Deployed: Take Off source/workflow, quantity grid, four cask planning formats, public Coming soon and local Product/Package declaration editor. Not yet implemented: shared isinglass process defaults, local marketing publication/asset ownership, recipe/formulation revisions and launch readiness. Sellar still refreshes product_presentations and ViewPlan still updates imported Product fields. See [ownership proposal](./product-ownership-review.md) before changing either connector; this review changes docs only.

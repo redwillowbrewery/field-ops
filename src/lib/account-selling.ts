@@ -1,3 +1,4 @@
+import {publishedInformation} from "@/lib/product-publication";
 import {readProductInformation,effectiveProductInformation,type InformationData,type ProductInformation} from "@/lib/product-information";
 import type {SupabaseClient} from "@supabase/supabase-js";
 import {getAccountAvailability,type AvailabilityResult} from "@/lib/availability";
@@ -16,7 +17,7 @@ export async function getAccountSellingData(db:SupabaseClient,accountId:string,p
 
 export function composeAccountSellingRows(availability:AvailabilityResult,prices:EffectivePriceRow[],information:InformationData={products:[],packages:[]}):AccountSellingResult{
  const priceByVariant=new Map(prices.map(row=>[row.product_variant_id,row]));
- const rows=availability.items.map(item=>{const price=priceByVariant.get(item.variantId);return{variantId:item.variantId,productId:item.productId,productName:item.productName,packageLabel:packageSalesLabel(item.package,item.packageType),broadFormat:item.broadFormat,availableQuantity:item.availableQuantity,customerPrice:toPrice(price?.customer_price),listPrice:toPrice(price?.list_price),description:item.presentation?.description||"",imageUrl:item.presentation?.image_url||null,abv:item.presentation?.abv??null,information:effectiveProductInformation(information,item.productId,item.package.id)}});
+ const rows=availability.items.map(item=>{const price=priceByVariant.get(item.variantId);return{variantId:item.variantId,productId:item.productId,productName:item.productName,packageLabel:packageSalesLabel(item.package,item.packageType),broadFormat:item.broadFormat,availableQuantity:item.availableQuantity,customerPrice:toPrice(price?.customer_price),listPrice:toPrice(price?.list_price),description:item.presentation?.description||"",imageUrl:item.presentation?.image_url||null,abv:item.presentation?.abv??null,information:item.specification?publishedInformation(item.specification,item.broadFormat):effectiveProductInformation(information,item.productId,item.package.id)}});
  return{rows,observedAt:availability.observedAt,lastRefreshError:availability.lastRefreshError};
 }
 function toPrice(value:number|string|null|undefined){if(value==null)return null;const number=Number(value);return Number.isFinite(number)?number:null}

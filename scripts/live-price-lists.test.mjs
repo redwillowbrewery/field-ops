@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 function load(path, overrides = {}) {
   const code = ts.transpileModule(readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const compiledModule = { exports: {} };
-  runInNewContext(code, { module: compiledModule, exports: compiledModule.exports, require: name => name in overrides ? overrides[name] : require(name), URL, process, fetch, Date, console });
+  runInNewContext(code, { module: compiledModule, exports: compiledModule.exports, require: name => name in overrides ? overrides[name] : name === "@/lib/product-publication" ? {...load("lib/product-publication.ts"),readPublishedProducts:async()=>[]} : require(name), URL, process, fetch, Date, console });
   return compiledModule.exports;
 }
 const policy = load('lib/price-list-policy.ts');
@@ -140,4 +140,25 @@ test('editor submits explicit unknown separately from inherited package values',
  assert.equal(args.p_details.vegan,false);assert.equal(args.p_details.gluten_free,null);
  assert.equal('lactose_free' in args.p_details,false);assert.equal('allergens' in args.p_details,false);
  assert.equal(args.p_details.fining_status,'fined');
+});
+
+test('published declarations use one gluten status and packaging-family treatment',()=>{
+ const publication=load('lib/product-publication.ts');
+ const spec={name:'Local beer',description:'Reviewed',abv:4.5,artwork_path:null,allergens:'Contains barley',gluten_free:false,lactose_free:null,
+ cask:{fining:'fined',vegan:false,allergens_override:true,allergens:'Cask declaration'},
+ keg_can:{fining:'unfined',vegan:null,allergens_override:false,allergens:null}};
+ for(const format of ['cask','keg','can','other'])assert.equal(publication.publishedInformation(spec,format).gluten_free,false);
+ assert.equal(publication.publishedInformation(spec,'cask').allergens,'Cask declaration');
+ assert.equal(publication.publishedInformation(spec,'keg').allergens,'Contains barley');
+ assert.equal(publication.publishedInformation(spec,'can').fining_status,'unfined');
+ assert.equal(publication.publishedInformation(spec,'can').vegan,null);
+ assert.equal(publication.publishedInformation(spec,'other').fining_status,null);
+});
+test('Coming soon uses local publication instead of source description and reviewed family fields',()=>{
+ const publication=load('lib/product-publication.ts');
+ const coming=load('lib/coming-soon.ts',{'@/lib/product-information':informationReader,'@/lib/account-selling':{},'@/lib/package-eligibility':{packageAllowedForAccount:()=>true,packageSalesLabel:()=> 'Firkin'}});
+ const spec={name:'Local name',description:'Published description',abv:null,artwork_path:null,allergens:'Contains barley',gluten_free:false,lactose_free:null,cask:{fining:'fined',vegan:false,allergens_override:false,allergens:null},keg_can:{fining:'unfined',vegan:null,allergens_override:false,allergens:null}};
+ const out=coming.composeComingSoon([{productId:'p',productName:'Source name',description:'Source description',imageUrl:'https://source/image',abv:5,package:{id:'c',name:'Firkin',broad_format:'cask'},variantId:'v',estimatedDate:null}],[],'any',{products:[],packages:[]},[{product_id:'p',specification:spec}]);
+ assert.equal(out[0].productName,'Local name');assert.equal(out[0].description,'Published description');assert.equal(out[0].abv,null);assert.equal(out[0].imageUrl,null);assert.equal(out[0].packages[0].information.fining_status,'fined');
+ assert.equal(policy.allowedPriceListImage(publication.artworkUrl('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002.jpg')),'/product-artwork/00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002.jpg');
 });
