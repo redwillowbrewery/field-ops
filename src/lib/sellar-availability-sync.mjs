@@ -43,11 +43,12 @@ export async function fetchProducts(base,token,{fetchImpl=fetch,pageSize=100,max
    if(!row||typeof row!=='object'||!['string','number'].includes(typeof row.id)||!String(row.id).trim()||(typeof row.id==='number'&&!Number.isSafeInteger(row.id)))throw new Error('Invalid Sellar product identity.');
    const id=String(row.id);if(seen.has(id))throw new Error('Duplicate Sellar identity or repeated page.');seen.add(id);
    const stock=row.availableStock??row.stock;
-   if(!['number','string'].includes(typeof stock)||String(stock).trim()===''||!Number.isFinite(Number(stock))||Number(stock)<0)throw new Error('Invalid or missing Sellar stock; preserving previous availability.');
-   all.push({...row,validatedStock:Number(stock)});
+   if(!['number','string'].includes(typeof stock)||String(stock).trim()===''||!Number.isFinite(Number(stock)))throw new Error('Invalid or missing Sellar stock; preserving previous availability.');
+   all.push({...row,validatedStock:Math.max(0,Number(stock))});
   }
   if(rows.length<pageSize)return all;
  }
  throw new Error('Sellar pagination limit reached; completeness unproven.');
 }
 export function errorMessage(error){if(error instanceof Error)return error.message;if(error&&typeof error==="object"){const parts=[error.message,error.details,error.hint,error.code].filter(Boolean);if(parts.length)return parts.join(" | ");try{return JSON.stringify(error)}catch{}}return String(error)}
+
