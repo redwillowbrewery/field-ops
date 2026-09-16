@@ -1,6 +1,14 @@
 # Brewery Ops Workflow Design Principles
 
-**Current delivery — 10 September 2026:** Sprint 4 Product foundation and architecture-review fixes are on `feature/product-foundation`; application release and Head Brewer field acceptance remain pending. Sprint 3 is deployed with field acceptance open. Sprint 2C is deployed and accepted except deferred prospect testing. The corrected ViewPlan task completed through Task Scheduler on 10 September; the next automatic overnight run remains to be verified. See [review fixes and rollout](./architecture-review-fixes.md).
+## Revised delivery priority — 15 September 2026
+
+The [weekly fulfilment brief](./weekly-fulfilment-plan.md) supersedes the earlier requirement to complete Product → Production → Inventory before any Logistics work. Bring forward weekly delivery/collection planning, route suggestions, load calculations and planning exceptions using read-only ViewPlan orders. Broader recipe and production expansion is deferred; preserve the deployed Product foundation and existing CRM, Take Off and price-list workflows.
+
+Brewery Ops is to own local route/load planning revisions and planning exceptions through an accepted pilot. ViewPlan owns barcode allocation, printed orders and the pre-dispatch allocation check; Brewery Ops planning readiness is not dispatch release. Local picking execution is deferred. ViewPlan retains order capture and existing stock allocation, batch traceability, dispatch confirmation, invoicing and duty records until their exact hand-back responsibilities are verified and a separate transfer is accepted. Local completion never implies a ViewPlan update; planning never overrides ordering/dispatch blocks. This is a revised delivery sequence, not approval for live execution or a claim that the pilot is implemented.
+
+See the [repository gap analysis and milestones](./weekly-fulfilment-implementation-review.md). Historical sprint scopes below remain historical; their broader sequencing gates are superseded by this decision. No new sprint numbers or release dates are assigned yet.
+
+**Delivery status — 15 September 2026:** Product foundation and architecture-review fixes have merged to main and been deployed. Product adoption/Head Brewer acceptance remains open; Sprint 3 field acceptance remains open and Sprint 2C prospect testing is deferred. The next priority is fulfilment discovery and pilot scoping below.
 
 Status: **Canonical product/workflow reference**
 
