@@ -59,3 +59,9 @@ Provisional planning does not update VP dates or vehicles; coordinate proposed c
 - New database coverage includes replay, source amendments preserving plans, stale/concurrent writes, atomic rejection, source timestamp checks and role boundaries.
 - The PowerShell adapter passed a fake-DAO replay of the supplied 96-order/268-line audit, including tracked-scope overlap and row-limit rejection. Actual ViewPlan execution remains a user field test.
 - No source audit data was inserted into production by the implementation tests.
+
+## Daily map field test
+
+Choose a day in the three-week view, then all vans or one van. Check the depot address, van colours, grouped customer locations and delivery/collection details. Select a marker or list entry and open the linked order. Orders at shared coordinates remain listed individually within customer/van groups. Unknown/overridden locations remain visible as exceptions; non-van and undated work remains listed separately. Test at phone and desktop widths and with map assets unavailable (the work list remains usable).
+
+The map depicts postcode-based locations, not road routes. Pin numbers identify list entries, not delivery sequence. The depot pin is an approximate postcode centre. The next routing stage still needs a provider/account decision and verified depot entrance; no driving-time validation or final route is implied.

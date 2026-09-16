@@ -251,3 +251,11 @@ Route lines must use the accepted stop order and road-routing geometry once avai
 Keep map selections and board assignments consistent. Moving a drop between vans/days or changing stop order uses the same revision, weight/time and commitment checks as the board. Expose per-run driving time, outbound/peak load and unresolved space/collection assumptions when those calculations are available. Google Maps driver handover uses the same issued stop sequence.
 
 Acceptance: show a real two-van day, identify every drop and collection, compare each coloured/numbered run with the ordered stop list, inspect an order, and verify an accepted reassignment updates both views. Missing coordinates, unassigned work and stale source data remain visible. This is part of the routing milestone; the existing provisional board does not yet calculate or display routes.
+
+### Brewery depot — confirmed 16 September 2026
+
+Departure and return: The Lodge, Sutton Mill, Byrons Lane, Macclesfield, SK11 7JW. The initial daily location map uses the existing postcode geocoding approach: SK11 7JW resolves via Postcodes.io to 53.249509, -2.118894 (checked 16 September). This is labelled as a postcode-centre estimate, not a verified brewery entrance. Confirm the actual entrance before road routing. Routing-service account/provider remains unconfirmed.
+
+### Daily location map pilot — 16 September 2026
+
+The pilot now has a selected-day map with van colours/filtering, grouped customer locations, delivery/collection labels and links to order details. It reuses Account coordinates only where source address fields match; delivery overrides, additional address lines or missing coordinates remain explicit exceptions. Pallet/Courier/COLLECT and undated work remain listed outside van pins. Numbers are map references, not an agreed stop sequence. Road geometry, optimisation and driving estimates remain outstanding; this does not complete the requested route-map milestone.
