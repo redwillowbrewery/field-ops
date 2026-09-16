@@ -187,3 +187,16 @@ Acceptance: an order grows after the normal poll but before final routing. The f
 Implemented on the working branch: independent source IDs and immutable content revisions, service-only atomic ingestion, preserved provisional assignments with optimistic concurrency and audit history, exact Account lookup, Pallet separation, customer dispatch warnings, visible unknown weights, source freshness and a three-week board. Added a separate orders runner with local overlap protection and tracked-order reconciliation. See [pilot installation and acceptance](./fulfilment-pilot-testing.md).
 
 Automated build/tests pass; actual server polling, timed-task operation and authenticated board field acceptance remain open. This is milestone 1A/1B pilot work. Suggestions/road routing, collection jobs and capacity profiles, finalisation, driver navigation and mailbox integration are not implemented by this slice. The full weekly planning milestone remains incomplete until recommendations are delivered.
+
+
+### Shared van-route map — confirmed 16 September 2026
+
+Provide a map alongside the weekly/day board showing each van's route and drops. Use a distinct colour plus a labelled legend for each van/run, numbered stops in the agreed sequence, and the brewery departure/return. Filter by date and show/hide individual vans or compare the day's runs together. Distinguish delivery, collection-only and combined stops without relying on colour alone.
+
+Selecting a stop opens its customer, delivery quantities, expected collections, timing/window, known weight and outstanding exceptions in the same planning context. Show unassigned orders as separate markers and a list; retain ungeocoded/ambiguous-address work in a visible exceptions list rather than dropping it from the plan. Pallet-network and other non-van work stays separately visible and is not drawn as a van route.
+
+Route lines must use the accepted stop order and road-routing geometry once available. Before that integration, a map can show delivery locations but must not present straight connecting lines as validated road routes or derive driving time from them. Use the effective delivery address, including source overrides; existing Account postcode coordinates require an explicit match before reuse. Display provisional versus accepted revisions and distinguish suggested changes from the current plan.
+
+Keep map selections and board assignments consistent. Moving a drop between vans/days or changing stop order uses the same revision, weight/time and commitment checks as the board. Expose per-run driving time, outbound/peak load and unresolved space/collection assumptions when those calculations are available. Google Maps driver handover uses the same issued stop sequence.
+
+Acceptance: show a real two-van day, identify every drop and collection, compare each coloured/numbered run with the ordered stop list, inspect an order, and verify an accepted reassignment updates both views. Missing coordinates, unassigned work and stale source data remain visible. This is part of the routing milestone; the existing provisional board does not yet calculate or display routes.
