@@ -30,3 +30,8 @@ jobs:
             if($errors.Count){throw "PowerShell syntax error in $($_.Name)"}
           }
           ./scripts/test-connector-runner.ps1
+      - name: Check order pagination in server PowerShell
+        shell: pwsh
+        run: |
+          & "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File scripts/test-viewplan-orders-pagination.ps1
+          if($LASTEXITCODE -ne 0){throw 'Order pagination regression failed'}

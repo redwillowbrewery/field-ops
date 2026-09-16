@@ -1,3 +1,13 @@
+# Normalize a REST JSON array after assignment, not inside @(...Invoke-RestMethod).
+# Windows PowerShell can otherwise wrap an empty JSON array as one pipeline item.
+function Get-FulfilmentTrackedIds($Response) {
+ if($null -eq $Response -or $Response -isnot [array]){throw 'Invalid tracked-order response; expected a JSON array'}
+ foreach($row in $Response){
+  $id=0L
+  if($null -eq $row -or [string]$row.source_id -notmatch '^[1-9][0-9]*$' -or -not [long]::TryParse([string]$row.source_id,[ref]$id)){throw 'Invalid tracked source identity in connector response'}
+  $id
+ }
+}
 # Read-only ViewPlan adapter. No source query execution or source writes.
 function Get-FulfilmentProjection($db, [long[]]$TrackedIds=@(), [int]$MaxRows=10000) {
 function Read-FulfilmentSnapshot([string]$sql) {

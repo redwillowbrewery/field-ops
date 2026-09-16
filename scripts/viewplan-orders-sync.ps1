@@ -18,14 +18,15 @@ try{
  $tracked=New-Object System.Collections.Generic.List[long]
  if(-not $ExportPath){
   for($offset=0;;$offset+=1000){
-   $rows=@(Invoke-RestMethod -Method Get -Uri ($SupabaseUrl.TrimEnd('/')+"/rest/v1/fulfilment_orders?select=source_id&order=source_id&limit=1000&offset=$offset") -Headers @{apikey=$ServiceRoleKey} -UserAgent 'RedWillow-BreweryOps-ViewPlan-Connector/1.2' -TimeoutSec 60)
-   foreach($r in $rows){$tracked.Add([long]$r.source_id)}
+   $response=Invoke-RestMethod -Method Get -Uri ($SupabaseUrl.TrimEnd('/')+"/rest/v1/fulfilment_orders?select=source_id&order=source_id&limit=1000&offset=$offset") -Headers @{apikey=$ServiceRoleKey} -UserAgent 'RedWillow-BreweryOps-ViewPlan-Connector/1.2' -TimeoutSec 60
+   $rows=@(Get-FulfilmentTrackedIds -Response $response)
+   foreach($id in $rows){$tracked.Add($id)}
    if($rows.Count -lt 1000){break}
    if($tracked.Count -ge 10000){throw 'Tracked order limit reached; review archive scope before polling'}
   }
  }
  $access=[Runtime.InteropServices.Marshal]::GetActiveObject('Access.Application');$db=$access.CurrentDb()
- $result=Get-FulfilmentProjection $db $tracked.ToArray()
+ $result=Get-FulfilmentProjection -db $db -TrackedIds ($tracked.ToArray())
  if($ExportPath){
   [IO.File]::WriteAllText($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ExportPath),(ConvertTo-Json -InputObject $result -Depth 20),[Text.UTF8Encoding]::new($false))
   Write-Host 'Read-only order projection exported. No Brewery Ops writes.'
