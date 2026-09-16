@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("all","customers","products","pricing","containers","take-off")]
+    [ValidateSet("all","customers","products","pricing","containers","take-off","orders")]
     [string]$Module = "all",
     [switch]$Full,
     [switch]$Scheduled
@@ -80,6 +80,7 @@ Write-Host ""
 if ($Module -eq "all" -or $Module -eq "take-off") {
     Run-Module "Take Off Planning" "viewplan-take-off-sync.ps1"
 }
+if ($Module -eq "orders") { Run-Module "Order planning" "viewplan-orders-sync.ps1" }
 Write-Host "ViewPlan connector runner complete."
 
     $stage='complete'
