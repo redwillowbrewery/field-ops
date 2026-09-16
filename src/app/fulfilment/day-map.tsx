@@ -22,8 +22,9 @@ function loadMap(){
   script=document.createElement("script");script.dataset.fieldopsLeaflet="true";script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";script.onload=loaded;script.onerror=failed;document.head.appendChild(script);
  });return loading;
 }
-export function DayMap({orders,start,initialDay,vehicles}:{orders:DayMapOrder[];start:string;initialDay:string;vehicles:Vehicle[]}){
- const [day,setDay]=useState(initialDay),[vehicle,setVehicle]=useState("all"),[selected,setSelected]=useState<string|null>(null),[ready,setReady]=useState(false),[error,setError]=useState(false);
+export function DayMap({orders,start,initialDay,vehicles,selectedDay,onDayChange}:{orders:DayMapOrder[];start:string;initialDay:string;vehicles:Vehicle[];selectedDay?:string;onDayChange?:(day:string)=>void}){
+ const [localDay,setLocalDay]=useState(initialDay),[vehicle,setVehicle]=useState("all"),[selected,setSelected]=useState<string|null>(null),[ready,setReady]=useState(false),[error,setError]=useState(false);
+ const day=selectedDay??localDay;const setDay=(value:string)=>{setLocalDay(value);onDayChange?.(value);};
  const el=useRef<HTMLDivElement>(null),map=useRef<MapInstance|null>(null),layer=useRef<Layer|null>(null);
  const groups=useMemo(()=>dayMapGroups(orders,day,vehicle),[orders,day,vehicle]);
  const picked=groups.stops.find(s=>s.key===selected);

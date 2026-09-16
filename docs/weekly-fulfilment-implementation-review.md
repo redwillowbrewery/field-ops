@@ -200,3 +200,12 @@ Route lines must use the accepted stop order and road-routing geometry once avai
 Keep map selections and board assignments consistent. Moving a drop between vans/days or changing stop order uses the same revision, weight/time and commitment checks as the board. Expose per-run driving time, outbound/peak load and unresolved space/collection assumptions when those calculations are available. Google Maps driver handover uses the same issued stop sequence.
 
 Acceptance: show a real two-van day, identify every drop and collection, compare each coloured/numbered run with the ordered stop list, inspect an order, and verify an accepted reassignment updates both views. Missing coordinates, unassigned work and stale source data remain visible. This is part of the routing milestone; the existing provisional board does not yet calculate or display routes.
+
+
+### Manual stop planning and Google Maps previews — 16 September 2026
+
+Ops can drag individual orders within or between the selected day's vans, with up/down buttons and a van selector for touch/keyboard use. Save the provisional sequence to share it across users; saves validate source and plan revisions atomically, preserve audit history, and never update ViewPlan. Changing date/van through the older board clears the old sequence position so the order appends to its new run. The map remains a location map with reference numbers; the separate ordered list defines the Google Maps preview sequence.
+
+Known outbound payload totals update immediately. Unknown weight/returns, changed or stale observations, failed refresh, unavailable vehicles, explicit dispatch blocks and excess payload remain visible; unresolved weight, changed/stale data, failed refresh, unavailable vehicles, explicit blocks, excess payload or unsaved edits prevent Maps previews. Links contain addresses only and split into continuous sections with at most three intermediate waypoints and 2,048 characters, preserving brewery departure/return. These are provisional planning previews, not issued driver runs or finalisation. No external routing account is needed for these links.
+
+Next: suggested routing using verified locations, receiving/delivery windows (distinct from opening hours), road times, service allowances, daily resources, collections and the four-hour driving constraint. Missing receiving hours remain unknown. Final route approval still requires the agreed on-demand ViewPlan revalidation and revision checks; this slice does not implement finalisation or dispatch clearance.

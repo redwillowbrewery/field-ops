@@ -259,3 +259,12 @@ Departure and return: The Lodge, Sutton Mill, Byrons Lane, Macclesfield, SK11 7J
 ### Daily location map pilot — 16 September 2026
 
 The pilot now has a selected-day map with van colours/filtering, grouped customer locations, delivery/collection labels and links to order details. It reuses Account coordinates only where source address fields match; delivery overrides, additional address lines or missing coordinates remain explicit exceptions. Pallet/Courier/COLLECT and undated work remain listed outside van pins. Numbers are map references, not an agreed stop sequence. Road geometry, optimisation and driving estimates remain outstanding; this does not complete the requested route-map milestone.
+
+
+### Manual stop planning and Google Maps previews — 16 September 2026
+
+Ops can drag individual orders within or between the selected day's vans, with up/down buttons and a van selector for touch/keyboard use. Save the provisional sequence to share it across users; saves validate source and plan revisions atomically, preserve audit history, and never update ViewPlan. Changing date/van through the older board clears the old sequence position so the order appends to its new run. The map remains a location map with reference numbers; the separate ordered list defines the Google Maps preview sequence.
+
+Known outbound payload totals update immediately. Unknown weight/returns, changed or stale observations, failed refresh, unavailable vehicles, explicit dispatch blocks and excess payload remain visible; unresolved weight, changed/stale data, failed refresh, unavailable vehicles, explicit blocks, excess payload or unsaved edits prevent Maps previews. Links contain addresses only and split into continuous sections with at most three intermediate waypoints and 2,048 characters, preserving brewery departure/return. These are provisional planning previews, not issued driver runs or finalisation. No external routing account is needed for these links.
+
+Next: suggested routing using verified locations, receiving/delivery windows (distinct from opening hours), road times, service allowances, daily resources, collections and the four-hour driving constraint. Missing receiving hours remain unknown. Final route approval still requires the agreed on-demand ViewPlan revalidation and revision checks; this slice does not implement finalisation or dispatch clearance.

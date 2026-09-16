@@ -65,3 +65,17 @@ Provisional planning does not update VP dates or vehicles; coordinate proposed c
 Choose a day in the three-week view, then all vans or one van. Check the depot address, van colours, grouped customer locations and delivery/collection details. Select a marker or list entry and open the linked order. Orders at shared coordinates remain listed individually within customer/van groups. Unknown/overridden locations remain visible as exceptions; non-van and undated work remains listed separately. Test at phone and desktop widths and with map assets unavailable (the work list remains usable).
 
 The map depicts postcode-based locations, not road routes. Pin numbers identify list entries, not delivery sequence. The depot pin is an approximate postcode centre. The next routing stage still needs a provider/account decision and verified depot entrance; no driving-time validation or final route is implied.
+
+
+## Manual stop ordering / Maps preview acceptance
+
+Apply `20260916120000_fulfilment_stop_sequence.sql` before using sequence saving. No ViewPlan script changes are required.
+
+1. Choose a day with two vans. Drag an order before another order, then to the other van. Check weight totals, map membership and unchanged source order contents.
+2. Repeat with up/down buttons and the van selector on a phone. Save, reload and confirm the sequence survives. Discard should restore the previously loaded plan.
+3. In two sessions edit the same order. The second save must fail without partially moving other orders. Repeat with a ViewPlan amendment between loading and saving.
+4. Check unavailable vans, overload, unknown weight, dispatch block, failed/stale observations and unsaved edits. Preview links should be withheld with a reason.
+5. With reviewed, current, fully weighted orders, open each numbered Google Maps preview section on the actual driver phone. Confirm every address in order, continuity between sections and brewery return. These previews are not approved driver instructions.
+6. Change an order's day/van through the older board form. It should appear at the end of the new run, without its previous position.
+
+Road geometry remains in Google Maps. Automatic suggestions, receiving windows and road-time/four-hour checks are subsequent work; no finalised route can be issued yet.

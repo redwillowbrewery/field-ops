@@ -1,7 +1,7 @@
 export type SourceLine={order_item_id:number;packaging_type:string;product_name?:string;quantity:number;unit_weight_kg:number|null;is_cancelled?:boolean;is_deleted?:boolean;misc_item_id?:number};
 export type SourceOrder={source_id:number;account_id:string|null;fulfilment_method:string;delivery_date:string|null;revision:number;observed_at:string;snapshot:{header:{order_id:number;order_no_val:number;delivery_vehicle_id:number|null;order_type:number;is_cancelled?:boolean;is_deleted?:boolean;is_pre_order?:boolean;is_dispatched?:boolean;is_delivered?:boolean;order_exclude_from_dlv_sched?:boolean};customer:{customer_name:string;delivery_address?:string;customer_address_line1?:string;customer_address_line2?:string;customer_address_town?:string;customer_address_postcode?:string;customer_exclude_from_dlv_sched?:boolean};customer_status?:{allow_order?:boolean;allow_order_dispatch?:boolean};lines:SourceLine[];sub_lines?:unknown[]}};
 export type Vehicle={vehicle_id:number;vehicle_name:string;vehicle_max_load_kg:number;is_available:boolean};
-export type OrderPlan={source_id:number;planned_date:string;vehicle_id:number|null;revision:number;reviewed_source_revision:number};
+export type OrderPlan={source_id:number;planned_date:string;vehicle_id:number|null;revision:number;reviewed_source_revision:number;stop_position?:number|null};
 export function orderWeight(lines:SourceLine[]){
  let knownKg=0;const issues:string[]=[];const active=lines.filter(l=>!l.is_cancelled&&!l.is_deleted);
  for(const l of active){
@@ -19,7 +19,7 @@ export function monday(date:string){const d=new Date(date+"T12:00:00Z");if(!/^\d
 export function addDays(date:string,n:number){const d=new Date(date+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
 
 export type AccountLocation={id:string;address_line_1:string|null;town:string|null;postcode:string|null;latitude:number|null;longitude:number|null};
-export type DayMapOrder={id:number;accountId:string|null;name:string;date:string|null;vehicleId:number|null;vehicleName:string;transport:string;address:string;latitude:number|null;longitude:number|null;locationIssue:string|null;kind:string;knownKg:number;totalKg:number|null;issues:string[];lines:string[]};
+export type DayMapOrder={observedAt?:string;sourceRevision?:number;planRevision?:number;stopPosition?:number|null;id:number;accountId:string|null;name:string;date:string|null;vehicleId:number|null;vehicleName:string;transport:string;address:string;latitude:number|null;longitude:number|null;locationIssue:string|null;kind:string;knownKg:number;totalKg:number|null;issues:string[];lines:string[]};
 const clean=(value:string|null|undefined)=>(value||"").trim().toLowerCase().replace(/[^a-z0-9]/g,"");
 export function deliveryLocation(order:SourceOrder,account:AccountLocation|undefined){
  const c=order.snapshot.customer;
@@ -45,7 +45,7 @@ export function mapOrder(order:SourceOrder,plan:OrderPlan|undefined,account:Acco
  if(order.snapshot.customer_status?.allow_order_dispatch!==true)issues.push(order.snapshot.customer_status?.allow_order_dispatch===false?"Customer dispatch blocked":"Dispatch permission unknown");
  if(h.is_pre_order)issues.push("Pre-order; confirm commitment");
  if(h.order_type!==1)issues.push("Order type needs review");
- return {id:order.source_id,accountId:order.account_id,name:c.customer_name,date:plan?.planned_date||order.delivery_date,vehicleId,vehicleName,transport,
+ return {observedAt:order.observed_at,sourceRevision:order.revision,planRevision:plan?.revision||0,stopPosition:plan?.stop_position??null,id:order.source_id,accountId:order.account_id,name:c.customer_name,date:plan?.planned_date||order.delivery_date,vehicleId,vehicleName,transport,
  address:c.delivery_address?.trim()||[c.customer_address_line1,c.customer_address_line2,c.customer_address_town,c.customer_address_postcode].filter(Boolean).join(", "),
  ...deliveryLocation(order,account),kind:collection?(goods?"Delivery + collection":"Collection instruction"):goods?"Delivery":"Work needs review",
  knownKg:weight.knownKg,totalKg:weight.totalKg,issues,lines:active.map(l=>`${l.quantity} × ${l.product_name||"Item"} · ${l.packaging_type}`)};
@@ -60,3 +60,36 @@ export function dayMapGroups(orders:DayMapOrder[],day:string,vehicle:string){
  return {stops,nonVan,unscheduled:orders.filter(o=>!o.date)};
 }
 export const FULFILMENT_DEPOT={address:"The Lodge, Sutton Mill, Byrons Lane, Macclesfield, SK11 7JW",latitude:53.249509,longitude:-2.118894,locationBasis:"Postcode centre; brewery entrance not yet verified"};
+
+
+/** Consecutive sections, at most three waypoints for mobile Maps URLs. */
+export function googleMapsSections(addresses:string[]){
+ if(!addresses.length)return [];
+ if(addresses.some(a=>!a.trim()))throw new Error("Every stop needs a delivery address");
+ const points=[FULFILMENT_DEPOT.address,...addresses,FULFILMENT_DEPOT.address];
+ const result:{url:string;from:number;to:number}[]=[];
+ for(let start=0;start<points.length-1;){
+  let end=Math.min(start+4,points.length-1),url="";
+  while(end>start){
+   const params=new URLSearchParams({api:"1",origin:points[start],destination:points[end],travelmode:"driving"});
+   if(end>start+1)params.set("waypoints",points.slice(start+1,end).join("|"));
+   url="https://www.google.com/maps/dir/?"+params.toString();
+   if(url.length<=2048)break;end--;
+  }
+  if(end===start)throw new Error("Delivery address is too long for a Google Maps link");
+  result.push({url,from:start,to:end});start=end;
+ }
+ return result;
+}
+export function movePlanningOrder(orders:DayMapOrder[],id:number,vehicleId:number|null,beforeId:number|null,vehicles:Vehicle[]){
+ const moving=orders.find(o=>o.id===id);
+ if(!moving||!["Van","Unassigned"].includes(moving.transport))return orders;
+ if(vehicleId!==null&&!vehicles.some(v=>v.vehicle_id===vehicleId&&v.is_available&&[1,2,4].includes(v.vehicle_id)))return orders;
+ if(beforeId===id)return orders;
+ const target=orders.filter(o=>o.id!==id&&o.date===moving.date&&o.vehicleId===vehicleId).sort((a,b)=>(a.stopPosition??1e9)-(b.stopPosition??1e9)||a.id-b.id);
+ const index=beforeId===null?target.length:target.findIndex(o=>o.id===beforeId);
+ if(index<0)return orders;
+ target.splice(index,0,{...moving,vehicleId,vehicleName:vehicles.find(v=>v.vehicle_id===vehicleId)?.vehicle_name||"Unassigned",transport:vehicleId===null?"Unassigned":"Van"});
+ const updated=new Map(target.map((o,i)=>[o.id,{...o,stopPosition:i+1}]));
+ return orders.map(o=>updated.get(o.id)||o);
+}

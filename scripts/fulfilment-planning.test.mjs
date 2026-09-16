@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {orderWeight,isSourceStale,monday,addDays,deliveryLocation,mapOrder,dayMapGroups} from '../src/lib/fulfilment.ts';
+import {orderWeight,isSourceStale,monday,addDays,deliveryLocation,mapOrder,dayMapGroups,googleMapsSections,movePlanningOrder,FULFILMENT_DEPOT} from '../src/lib/fulfilment.ts';
 test('known delivery weight excludes cancellation but never conceals unknown return load',()=>{
  const lines=[{quantity:2,unit_weight_kg:51.2,packaging_type:'Firkin'},{quantity:10,unit_weight_kg:51.2,packaging_type:'Firkin',is_cancelled:true}];
  assert.equal(orderWeight(lines).totalKg,102.4);lines.push({quantity:1,unit_weight_kg:0,packaging_type:'(misc item)',misc_item_id:349});assert.equal(orderWeight(lines).totalKg,null);assert.equal(orderWeight(lines).knownKg,102.4);
@@ -28,4 +28,28 @@ test('collection instructions remain uncertain and co-located orders are grouped
  const o=sample();o.snapshot.lines.push({order_item_id:2,packaging_type:'(misc item)',quantity:1,misc_item_id:349,unit_weight_kg:0});
  const a=mapOrder(o,undefined,location,[],Date.now());assert.equal(a.kind,'Delivery + collection');assert.equal(a.totalKg,null);
  const g=dayMapGroups([a,{...a,id:2}],'2026-09-16','all');assert.equal(g.stops.length,1);assert.equal(g.stops[0].orders.length,2);
+});
+
+test('Maps sections preserve every stop and brewery return within mobile and URL limits',()=>{
+ const addresses=Array.from({length:14},(_,i)=>`Address ${i}, Street & Lane, SK11 7JW`);
+ const sections=googleMapsSections(addresses);const reconstructed=[];
+ for(const [i,s] of sections.entries()){
+  const q=new URL(s.url).searchParams;const waypoints=q.get('waypoints')?.split('|')||[];
+  assert.ok(waypoints.length<=3);assert.ok(s.url.length<=2048);
+  assert.equal(q.get('origin'),i?new URL(sections[i-1].url).searchParams.get('destination'):FULFILMENT_DEPOT.address);
+  reconstructed.push(...waypoints,q.get('destination'));
+ }
+ assert.deepEqual(reconstructed,[...addresses,FULFILMENT_DEPOT.address]);
+ assert.deepEqual(googleMapsSections([]),[]);assert.throws(()=>googleMapsSections(['']));assert.throws(()=>googleMapsSections(['x'.repeat(3000)]));
+});
+test('moving an order preserves all work and changes only the intended run',()=>{
+ const base=mapOrder(sample(),undefined,location,[],Date.now());
+ const orders=[{...base,id:1,stopPosition:1},{...base,id:2,stopPosition:2},{...base,id:3,vehicleId:2,stopPosition:1},{...base,id:4,date:'2026-09-17',stopPosition:1}];
+ const vehicles=[{vehicle_id:1,is_available:true},{vehicle_id:2,is_available:true}];
+ let moved=movePlanningOrder(orders,2,1,1,vehicles);
+ assert.equal(moved.find(o=>o.id===2).stopPosition,1);assert.equal(moved.find(o=>o.id===1).stopPosition,2);
+ moved=movePlanningOrder(moved,2,2,3,vehicles);
+ assert.equal(moved.find(o=>o.id===2).vehicleId,2);assert.equal(moved.find(o=>o.id===3).stopPosition,2);assert.deepEqual(moved[3],orders[3]);assert.equal(moved.length,4);
+ assert.deepEqual(movePlanningOrder(orders,1,3,null,vehicles),orders);
+ assert.deepEqual(movePlanningOrder([{...base,transport:'Pallet network'}],1,2,null,vehicles),[{...base,transport:'Pallet network'}]);
 });
