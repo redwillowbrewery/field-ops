@@ -1,6 +1,6 @@
 import {PGlite} from '@electric-sql/pglite';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 const db=new PGlite();
-await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
 create table connector_sync_state(source_system text,module text,last_success_at timestamptz,last_error text,last_row_count integer,updated_at timestamptz);
 create table connector_sync_runs(source_system text,module text,started_at timestamptz,status text);
 create table take_off_sync(snapshot_at timestamptz,updated_at timestamptz,last_error text);
@@ -8,6 +8,9 @@ create table product_source_refresh(source_system text,observed_at timestamptz,r
 insert into connector_sync_state values('viewplan','products',now(),null,0,now()),('viewplan','product_labels',now()-interval '2 days','Label failure',0,now());
 insert into take_off_sync values(now()-interval '2 days',now(),'Source failed');insert into product_source_refresh values('viewplan',now()-interval '2 days',1257);`);
 await db.exec(readFileSync(new URL('../supabase/migrations/20260910103000_connector_health.sql',import.meta.url),'utf8'));
+await db.exec(readFileSync(new URL('../supabase/migrations/20260916093000_connector_orders_module.sql',import.meta.url),'utf8'));
+await db.exec(`set role service_role;insert into connector_runner_runs values('00000000-0000-0000-0000-000000000003','viewplan','scheduled','orders','running',now()-interval '1 minute',null,'startup',null);reset role;`);
+await assert.rejects(db.exec(`insert into connector_runner_runs values('00000000-0000-0000-0000-000000000004','viewplan','scheduled','unknown','running',now(),null,'startup',null)`));
 await db.exec(`insert into connector_runner_runs values('00000000-0000-0000-0000-000000000001','viewplan','scheduled','all','failed',now(),now(),'Customers','AccessUnavailable');set role authenticated;set request.jwt.claim.sub='00000000-0000-0000-0000-000000000002';`);
 const rows=(await db.query('select * from connector_health()')).rows;
 assert.equal(rows.find(r=>r.module==='products').last_row_count,null);
