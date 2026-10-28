@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("all","customers","products","pricing","containers","take-off","orders")]
+    [ValidateSet("all","customers","products","pricing","sales","containers","take-off","orders")]
     [string]$Module = "all",
     [switch]$Full,
     [switch]$Scheduled
@@ -67,6 +67,10 @@ if ($Module -eq "all" -or $Module -eq "pricing") {
         ModuleName = "pricing"
         ScriptName = "viewplan-customer-pricing-sync.ps1"
     }
+}
+
+if ($Module -eq "all" -or $Module -eq "sales") {
+    Run-Module "Account sales history" "viewplan-sales-sync.ps1"
 }
 
 if ($Module -eq "all" -or $Module -eq "containers") {
