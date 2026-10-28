@@ -70,7 +70,9 @@ if ($Module -eq "all" -or $Module -eq "pricing") {
 }
 
 if ($Module -eq "all" -or $Module -eq "sales") {
-    Run-Module "Account sales history" "viewplan-sales-sync.ps1"
+    $salesParameters=@{}
+    if($Full){$salesParameters['Full']=$true}
+    Run-Module "Account sales history" "viewplan-sales-sync.ps1" $salesParameters
 }
 
 if ($Module -eq "all" -or $Module -eq "containers") {

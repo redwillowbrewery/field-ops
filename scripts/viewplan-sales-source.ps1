@@ -1,11 +1,31 @@
 # Account order history adapter. Field names and discounted values audited from
 # ViewPlan's sales spreadsheet SELECT definitions, supplied 28 October 2026.
 # Read explicit SELECT snapshots only; never execute saved queries or VBA functions.
-function Get-ViewPlanSalesSnapshot($db, [int]$MaxRows=250000) {
+function Get-ViewPlanSalesSnapshot($db, [int]$MaxRows=250000, [Nullable[DateTime]]$Since=$null, [long]$AfterOrderId=0, [int]$OverlapMinutes=5, [long]$Cursor=0, [int]$BatchOrders=500) {
     if ($MaxRows -lt 1 -or $MaxRows -gt 1000000) { throw 'Invalid sales source row limit.' }
+    if($AfterOrderId -lt 0 -or $Cursor -lt 0 -or $BatchOrders -lt 1 -or $BatchOrders -gt 2000 -or $OverlapMinutes -lt 0 -or $OverlapMinutes -gt 1440){throw 'Invalid sales checkpoint options.'}
     $at=[DateTime]::UtcNow.ToString('o')
     $timer=[Diagnostics.Stopwatch]::StartNew()
-    $fieldCache=@{}
+    $fieldOrdinals=@{};$buffer=$null;$bufferRow=0
+    # Checkpoints use the source machine's wall clock, not the database host's UTC
+    # clock. No saved queries or source records are changed to obtain it.
+    $clockSet=$null
+    try {
+        $clockSet=$db.OpenRecordset('SELECT Now() AS source_now',4)
+        if($clockSet.EOF){throw 'Source clock unavailable.'}
+        $through=[DateTime]$clockSet.Fields.Item('source_now').Value
+    } finally {if($null -ne $clockSet){$clockSet.Close()}}
+    if($null -ne $Since -and $through -lt [DateTime]$Since){throw 'ViewPlan clock is earlier than the saved checkpoint.'}
+    $mode=if($null -eq $Since){'backfill'}else{'incremental'}
+    $scope='o.is_dispatched=True AND o.order_type IN (1,2) AND Nz(o.is_cancelled,False)<>True AND Nz(o.is_deleted,False)<>True'
+    if($mode -eq 'incremental'){
+        $from=([DateTime]$Since).AddMinutes(-$OverlapMinutes).ToString('MM/dd/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture)
+        $scope+=" AND (o.lud >= #$from# OR o.updated_date >= #$from# OR o.dispatched_date >= #$from# OR o.order_id > $AfterOrderId)"
+        Write-Host ('Sales: dispatched history since {0}; {1}-minute overlap; new source IDs above {2}.' -f ([DateTime]$Since).ToString('yyyy-MM-dd HH:mm:ss'),$OverlapMinutes,$AfterOrderId)
+    } else {Write-Host 'Sales: resumable dispatched-history backfill.'}
+    $scope+=' AND o.order_id > '+$Cursor
+    $candidates=$scope.Replace('o.','candidate.')
+    $selection="SELECT TOP $BatchOrders candidate.order_id FROM tblOrder AS candidate WHERE $candidates ORDER BY candidate.order_id"
     $sql=@"
 SELECT TOP $($MaxRows+1)
  o.order_id, o.order_no_val, o.customer_id, o.order_date, o.delivery_date,
@@ -31,13 +51,14 @@ FROM (((tblOrder AS o LEFT JOIN tblOrder_Items AS i ON o.order_id=i.order_id)
  LEFT JOIN tblCustomer AS c ON o.customer_id=c.customer_id)
  LEFT JOIN tblInvoice AS inv ON o.invoice_id=inv.invoice_id)
  LEFT JOIN tblPackaging_Type_List AS p ON i.packaging_type=p.packaging_type
+WHERE o.order_id IN ($selection)
 ORDER BY o.order_id, i.order_item_id
 "@
     function Value($rs,[string]$name) {
-        # DAO Field objects follow the current record. Avoid re-resolving the
-        # Fields collection and named COM field for every value on every row.
-        if(-not $fieldCache.ContainsKey($name)){$fieldCache[$name]=$rs.Fields.Item($name)}
-        $v=$fieldCache[$name].Value
+        # GetRows crosses the Access COM boundary once per buffer, rather than
+        # once per field. Project the returned cells entirely in process memory.
+        if(-not $fieldOrdinals.ContainsKey($name)){throw ('Missing sales source field: '+$name)}
+        $v=$buffer[$fieldOrdinals[$name],$bufferRow]
         if ($null -eq $v -or $v -is [DBNull]) { return $null }
         return $v
     }
@@ -50,24 +71,28 @@ ORDER BY o.order_id, i.order_item_id
         throw 'Invalid source Boolean.'
     }
     $orders=New-Object System.Collections.Generic.List[object]
-    $seenLines=@{};$current=$null;$rowCount=0;$rs=$null
+    $seenLines=@{};$current=$null;$rowCount=0;$rs=$null;$missingNumbers=0
     $lastReportSeconds=0
     try {
-        Write-Host 'Sales: opening the full ViewPlan order/line query (read only)...'
+        Write-Host ('Sales: opening the '+$mode+' dispatched ViewPlan order/line query (read only)...')
         $rs=$db.OpenRecordset($sql,4)
+        for($field=0;$field -lt $rs.Fields.Count;$field++){$fieldOrdinals[[string]$rs.Fields.Item($field).Name]=$field}
         Write-Host ('Sales: query opened after {0:n1}s; reading history (limit {1:n0} rows)...' -f $timer.Elapsed.TotalSeconds,$MaxRows)
         while(-not $rs.EOF) {
+          $buffer=$rs.GetRows(250)
+          for($bufferRow=0;$bufferRow -lt $buffer.GetLength(1);$bufferRow++){
             if($rowCount -ge $MaxRows){throw 'Sales snapshot exceeds row limit; previous history retained.'}
             $rowCount++
+            if(-not (Flag (Value $rs 'is_dispatched'))){throw 'Undispatched order returned by history source.'}
             $id=Value $rs 'order_id'
             if($null -eq $id -or $id -le 0){throw 'Invalid source order identity.'}
             if($null -eq $current -or $current.source_order_id -ne $id){
                 $number=Value $rs 'order_no_val'
                 $eligible=((Value $rs 'order_type') -in @(1,2) -and -not (Flag (Value $rs 'order_cancelled')) -and -not (Flag (Value $rs 'order_deleted')))
-                if($eligible -and $null -eq $number){throw 'Missing source order number.'}
+                if($null -eq $number){$missingNumbers++}
                 $current=[ordered]@{
                     source_order_id=[long]$id
-                    order_no=if($null -eq $number){'source-only:'+ $id}else{([decimal]$number).ToString('0.################',[Globalization.CultureInfo]::InvariantCulture)}
+                    order_no=if($null -eq $number){'VP-ID:'+ $id}else{([decimal]$number).ToString('0.################',[Globalization.CultureInfo]::InvariantCulture)}
                     customer_id=Value $rs 'customer_id'
                     eligible=$eligible
                     order_date=DateOnly (Value $rs 'order_date')
@@ -111,14 +136,15 @@ ORDER BY o.order_id, i.order_item_id
                 Write-Host ('Sales: read {0:n0} source rows; {1:n0} orders; {2:n0} product/financial lines; elapsed {3:n0}s' -f $rowCount,$orders.Count,$seenLines.Count,$timer.Elapsed.TotalSeconds)
                 $lastReportSeconds=$timer.Elapsed.TotalSeconds
             }
-            $rs.MoveNext()
+          }
         }
     } finally {if($null -ne $rs){$rs.Close()}}
-    if(-not $orders.Count){throw 'Empty sales source; previous history retained.'}
     Write-Host ('Sales: source read complete: {0:n0} rows, {1:n0} orders, {2:n0} lines in {3:n1}s. Preparing payload...' -f $rowCount,$orders.Count,$seenLines.Count,$timer.Elapsed.TotalSeconds)
+    if($missingNumbers){Write-Warning ("Sales: $missingNumbers order(s) have no displayed number; labelled VP-ID:<internal ID> without dropping their products.")}
     $payload=@($orders | ForEach-Object {
         $row=@{};foreach($key in $_.Keys){if($key -eq 'lines'){$row[$key]=@($_.lines.ToArray())}else{$row[$key]=$_[$key]}}
         $row
     })
-    return @{payload=$payload;snapshot_at=$at;complete=$true}
+    $nextCursor=if($orders.Count){[long]$orders[$orders.Count-1].source_order_id}else{$Cursor}
+    return @{payload=$payload;snapshot_at=$at;complete=$true;source_through=$through.ToString('yyyy-MM-ddTHH:mm:ss');next_cursor=$nextCursor;has_more=($orders.Count -eq $BatchOrders)}
 }

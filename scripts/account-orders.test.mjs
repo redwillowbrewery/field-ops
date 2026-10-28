@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {getAccountOrderHistory} from '../src/lib/account-orders.ts';
 test('Account history keeps orders and all their product lines beyond REST row caps',async()=>{
- const orders=Array.from({length:1101},(_,i)=>({id:String(i),account_id:'a'}));
+ const orders=Array.from({length:1101},(_,i)=>({id:String(i),account_id:'a',dispatched:true}));
+ orders.push({id:'pending',account_id:'a',dispatched:false});
  const lines=Array.from({length:1205},(_,i)=>({order_id:'0',product_name:'Beer '+i,line_number:i}));
  lines.push({order_id:'1100',product_name:'Last order beer',line_number:1});
  const db={from(table){let rows=table==='sales_orders'?orders:lines,start=0,end=499;

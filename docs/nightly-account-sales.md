@@ -1,118 +1,108 @@
-# Nightly Account order history
+# Nightly dispatched Account order history
 
-Account order history and its expandable product lines already exist. This change
-refreshes their existing `sales_orders` / `sales_order_lines` records from ViewPlan,
-and derives the Account-list/visit-planning summary from that same history.
-ViewPlan remains read-only; no order creation, allocation, dispatch or finance
-authority moves. The separate 30-minute fulfilment poll is retained.
+Account orders and expandable product lines already exist. This connector keeps
+those same records up to date. ViewPlan remains read-only; open/changing orders
+continue through the separate 30-minute fulfilment feed.
 
-## Audited source mapping
+## Current rule and checkpoint behavior
 
-The supplied `fulfilment-schema-audit.json` establishes `tblOrder.order_id`, unique
-`order_no_val`, `customer_id` and `tblOrder_Items.order_item_id`. The supplied
-`viewplan-sales-definitions.json` is complete, without issues, and establishes the
-calculations in `qryReportA%Sales (A)_Order Data (Spreadsheet)`.
+Confirmed by Toby on 28 October: **Account history includes dispatched orders only;
+once dispatched, the order and its product lines are immutable.**
 
-The adapter reads explicit bounded SELECT snapshots of base tables, not saved
-queries or VBA functions. It reads all source order headers and their lines,
-including inactive headers for explicit cancellation/type-change reconciliation.
-Source types 1/2 and non-cancelled/non-deleted headers/lines supply sales history,
-matching the report. Older amended orders are included: no rolling date window or
-unproven header change watermark is used.
+- First load: read dispatched history in batches of **500 whole orders**, with all
+  products in each selected order. Each successful batch commits its data and a
+  resume cursor together. A stopped/failed run resumes after the last committed
+  batch rather than starting over. In-flight batches roll back on database failure.
+- Later nightly runs: read only dispatched orders since the last completed source
+  checkpoint, with a five-minute overlap. Check `lud`, `updated_date` and
+  `dispatched_date`, plus newly assigned source IDs. An older-created order newly
+  dispatched is included by its timestamp, not excluded by its old creation date.
+- Checkpoints use the ViewPlan machine's wall clock captured at scan start, not
+  completion time. Changes arriving during a long scan remain eligible next time.
+- No new dispatches is a successful zero-order run, never an instruction to delete
+  history. Partial windows and batches never delete orders absent from the payload.
+- A successful full import from the earlier connector can bootstrap the checkpoint
+  using its original UTC read start, converted on the ViewPlan Windows host. Failed
+  earlier imports cannot bootstrap; they start the bounded dispatched backfill.
+- `-Full` deliberately restarts a dispatched backfill; ordinary nightly runs do not.
+- Existing order IDs are adopted by exact order number then kept by stable ViewPlan
+  ID. Missing display numbers use the explicit label **VP-ID:<internal ID>**;
+  a blank legacy number does not discard the order or its products.
 
-Net and VAT are rounded by Access before the positive-value order discount is
-applied and rounded again, exactly as the report does. Non-positive `(discount)`
-line amounts are null in the discounted totals; other signed amounts are retained.
-Gross retains the report's pre-order-discount definition. Do not independently
-subtract credit-note records on top of the report's line values. Manufacturing
-cost/duty/VBA report functions are unnecessary for displaying Account order products
-and are not invoked. Source product names, including manual-entry text, packaging,
-quantities and available line values feed the existing order expansion.
+The source uses DAO `GetRows` buffers instead of individual COM calls per field.
+Logs report source rows/orders/lines, request sizes, committed cursors and progress.
+A source read is capped at 250,000 joined rows **per batch**; excessive or malformed
+batches fail without advancing their checkpoint. `-BatchOrders` may be reduced for
+large orders or a memory-constrained host. Credentials and order contents are not
+printed in diagnostics.
 
-## Persistence and safety
+## Audited source and persistence
 
-- Exact `accounts.brewery_customer_id` resolution; no customer-name matching.
-- Existing workbook order numbers are adopted without replacing their UUIDs.
-  Subsequent order/line source IDs preserve their canonical IDs on repeat reads.
-- A single service-role-only transaction updates all accepted orders, reconciles
-  full line sets and explicit cancellations, then updates summaries and successful
-  refresh/run state. Invalid mappings, duplicates or failed writes roll it all back.
-- Full-source absence removes only previously adopted source order IDs. Unadopted
-  workbook history is preserved; it is not guessed to be deleted.
-- Empty/oversized reads, stale snapshots and unexpected reductions fail closed.
-  A greater-than-20% order reduction requires deliberate `-AllowLargeReduction`
-  on the standalone sync after checking the source. The default nightly run does
-  not bypass this guard. Source rows default to a 250,000 joined-row limit; hitting
-  it fails without partial ingestion. Review 32-bit process memory/source size
-  before increasing `-MaxRows`.
-- A local exclusive lock prevents overlapping sales invocations. Database locking
-  and source-time checks reject concurrent/out-of-order ingestion.
-- Failed attempts record a safe stage and keep the last successful source time.
-  The existing connector health projection automatically includes the `sales` state.
-- CRM notes, contacts, relationship status and fulfilment assignments are not
-  rewritten. The old spreadsheet sales importer is not added to scheduling.
+The supplied schema and sales-definition reports establish stable order/customer/
+line IDs and ViewPlan's spreadsheet calculations. Read explicit SELECTs against
+base tables, never saved queries or VBA functions. Restrict to source types 1/2,
+dispatched, non-cancelled/non-deleted orders; exclude cancelled/deleted lines.
 
-The sales history reader also paginates orders and product lines beyond REST row
-limits. Its all-history metric is labelled `Total sales`; the Account detail's
-separate current-year summary remains a current-year summary.
+Discounted Net/VAT use Access's own report rounding and discount expressions.
+Signed line values are preserved; do not subtract credit-note records a second
+time. Gross retains the report's pre-order-discount definition. Manufacturing/
+duty report functions are not needed for displaying order products and are not run.
 
-## Installation order
+Each database batch atomically updates its orders, complete product lines, affected
+Account summaries and checkpoint revision. Exact customer IDs replace name matching.
+Conflicting identities, missing customers, invalid data or stale checkpoint leases
+reject the batch. Prior committed batches remain available to resume from.
 
-1. Apply `20261028150000_nightly_account_sales.sql` after the existing sales,
-   customer connector, runner-health and fulfilment orders-module migrations.
-   It extends the existing tables and permits `sales` as a runner module.
-2. Deploy the application changes for complete order/product pagination.
-3. Copy these three files together into the Windows connector Scripts directory:
-   `viewplan-connector.ps1`, `viewplan-sales-source.ps1`, `viewplan-sales-sync.ps1`.
+Existing undispatched rows are retained but excluded by the authenticated history
+read policies, latest-order/summary functions and new readers. This applies to the
+already-deployed Account screen. Notes, contacts, relationship status and fulfilment
+assignments are unchanged. A failed scan never claims a successful completed refresh.
+
+## Upgrade/install order
+
+1. Keep the already-applied `20261028150000_nightly_account_sales.sql` migration.
+   **Do not rerun it.**
+2. Apply **`20261028160000_dispatched_sales_checkpoints.sql`**. It adds resumable
+   checkpoints, dispatched-only reads and the new service-only ingestion function.
+   It disables the old full-history RPC so outdated scripts cannot restore open
+   orders to history or clear valid data.
+3. On branch `feature/account-sales-nightly-20261028`, `git pull --ff-only`. Install
+   these files together in the Windows Scripts directory: `viewplan-connector.ps1`,
+   `viewplan-sales-source.ps1`, `viewplan-sales-sync.ps1`.
 4. Keep the established `NEXT_PUBLIC_SUPABASE_URL` and protected
-   `SUPABASE_SERVICE_ROLE_KEY` process/user environment. PowerShell does not load
-   `.env.local`. Use 32-bit Windows PowerShell in the same authenticated ViewPlan
-   user session. No new credential or duplicate nightly task is needed.
-
-First produce a source-only diagnostic projection (contains business data, not keys):
-
-```powershell
-.\viewplan-sales-sync.ps1 -ExportPath .\sales-projection.json
-```
-
-Compare recent and older representative orders, beer names, packaging, quantities,
-discounted values and a credit with ViewPlan. An export alone does not update the
-application. Then perform the first refresh:
+   `SUPABASE_SERVICE_ROLE_KEY` environment. PowerShell does not load `.env.local`.
+   Use 32-bit Windows PowerShell in the same authenticated ViewPlan user session.
+5. Run the standalone module, then verify Account orders and product quantities:
 
 ```powershell
 .\viewplan-connector.ps1 -Module sales
 ```
 
-If it reports an unmapped customer, run the existing full customer reconciliation
-and investigate exact identity mapping; do not substitute name matching.
+If interrupted, rerun **the same command** to resume. Do not use `-Full` merely to
+retry. A missing customer needs exact mapping/customer reconciliation, not fuzzy
+matching. The completed scan prints `Account sales refreshed`.
 
-The existing nightly entry point now includes sales after pricing and before
-containers:
+The existing nightly task uses `-Module all -Scheduled`, which includes sales after
+pricing and before containers. Keep `-Module orders -Scheduled` for the separate
+fulfilment poll. No duplicate nightly task is needed. Observe a real overnight run.
+
+Optional diagnostic export of the **first batch only**, without application writes:
 
 ```powershell
-.\viewplan-connector.ps1 -Module all -Scheduled
+.\viewplan-sales-sync.ps1 -ExportPath .\sales-projection.json
 ```
 
-Verify the existing task actually uses `all` (or leaves Module at its default),
-then observe one real overnight trigger. Leave the fulfilment task's
-`-Module orders -Scheduled` and 30-minute cadence intact.
+## Validation
 
-## Acceptance and validation
+Compare dispatched orders, products, packaging, quantities and latest dates with
+ViewPlan; pending orders must not appear. Test a subsequent run with no dispatches,
+a newly dispatched older-created order and a restart after a committed batch.
+Ensure failures preserve earlier batches/cursors and a completed scan advances
+successful freshness. A source cancellation after dispatch contradicts the stated
+immutability rule and needs an explicit correction workflow, not absence inference.
 
-Open Account sales history, expand a known order and compare products, packaging
-and quantities. Check an order newer than the previous manual import, an older
-amended order, a removed line and a genuine cancellation. Run twice: orders and
-line identities must remain stable without duplicates. Compare latest-order dates
-and totals with the audited ViewPlan report, and ensure `sales` health shows the
-successful source-read time. Do not fabricate production orders for testing.
-
-Automated coverage includes legacy adoption, stable identities, product/quantity
-updates, removed lines, cancellations, signed values, summaries/latest dates,
-transaction rollback, stale snapshots, size/reduction guards and denied staff/anon
-ingestion. Unit coverage checks order/product pagination. Offline PowerShell source
-fixtures verify projection shapes and fail-closed reads. Windows CI checks x86
-compatibility and all-module sequencing/failure behavior. Actual Access execution,
-source/report comparisons and overnight scheduling remain rollout acceptance.
-
-No production migration, Windows installation or task change is performed merely
-by committing this implementation.
+Automated tests cover source query predicates, overlap/keyset boundaries, bulk-read
+projection, blank-number fallback, checkpoint resumes and leases, empty increments,
+bootstrap, dispatched-only policies/summaries, stable IDs, rollback and permissions.
+Windows CI checks x86 source fixtures and nightly runner sequencing. Actual Access
+execution and one scheduled overnight trigger remain field acceptance.

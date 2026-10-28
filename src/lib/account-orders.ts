@@ -18,6 +18,7 @@ export async function getAccountOrderHistory(db: SupabaseClient, accountId: stri
     const { data, error } = await db.from("sales_orders")
       .select("id,viewplan_order_no,order_date,delivery_date,sales_channel,net_amount,invoice_no")
       .eq("account_id", accountId)
+      .eq("dispatched", true)
       .order("order_date", { ascending: false }).order("id", { ascending: false })
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
