@@ -13,8 +13,10 @@ $db | Add-Member ScriptMethod OpenRecordset {
     $fields=[pscustomobject]@{Owner=$rs}
     $fields | Add-Member ScriptMethod Item {
         param($name)
-        $value=$this.Owner.Rows[$this.Owner.Index].$name
-        return [pscustomobject]@{Value=$value}
+        # Like DAO, cached Field objects must read from the current record.
+        $field=[pscustomobject]@{Owner=$this.Owner;Name=$name}
+        $field | Add-Member ScriptProperty Value {$this.Owner.Rows[$this.Owner.Index].($this.Name)}
+        return $field
     }
     $rs.Fields=$fields
     $rs | Add-Member ScriptMethod MoveNext {$this.Index++;$this.EOF=$this.Index -ge $this.Rows.Count}

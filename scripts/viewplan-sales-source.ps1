@@ -4,6 +4,8 @@
 function Get-ViewPlanSalesSnapshot($db, [int]$MaxRows=250000) {
     if ($MaxRows -lt 1 -or $MaxRows -gt 1000000) { throw 'Invalid sales source row limit.' }
     $at=[DateTime]::UtcNow.ToString('o')
+    $timer=[Diagnostics.Stopwatch]::StartNew()
+    $fieldCache=@{}
     $sql=@"
 SELECT TOP $($MaxRows+1)
  o.order_id, o.order_no_val, o.customer_id, o.order_date, o.delivery_date,
@@ -32,7 +34,10 @@ FROM (((tblOrder AS o LEFT JOIN tblOrder_Items AS i ON o.order_id=i.order_id)
 ORDER BY o.order_id, i.order_item_id
 "@
     function Value($rs,[string]$name) {
-        $v=$rs.Fields.Item($name).Value
+        # DAO Field objects follow the current record. Avoid re-resolving the
+        # Fields collection and named COM field for every value on every row.
+        if(-not $fieldCache.ContainsKey($name)){$fieldCache[$name]=$rs.Fields.Item($name)}
+        $v=$fieldCache[$name].Value
         if ($null -eq $v -or $v -is [DBNull]) { return $null }
         return $v
     }
@@ -46,8 +51,11 @@ ORDER BY o.order_id, i.order_item_id
     }
     $orders=New-Object System.Collections.Generic.List[object]
     $seenLines=@{};$current=$null;$rowCount=0;$rs=$null
+    $lastReportSeconds=0
     try {
+        Write-Host 'Sales: opening the full ViewPlan order/line query (read only)...'
         $rs=$db.OpenRecordset($sql,4)
+        Write-Host ('Sales: query opened after {0:n1}s; reading history (limit {1:n0} rows)...' -f $timer.Elapsed.TotalSeconds,$MaxRows)
         while(-not $rs.EOF) {
             if($rowCount -ge $MaxRows){throw 'Sales snapshot exceeds row limit; previous history retained.'}
             $rowCount++
@@ -99,10 +107,15 @@ ORDER BY o.order_id, i.order_item_id
                     gross_amount=Value $rs 'line_gross';line_weight_kg=Value $rs 'line_weight';line_type=$type
                 })
             }
+            if(($rowCount % 500) -eq 0 -or ($timer.Elapsed.TotalSeconds-$lastReportSeconds) -ge 10){
+                Write-Host ('Sales: read {0:n0} source rows; {1:n0} orders; {2:n0} product/financial lines; elapsed {3:n0}s' -f $rowCount,$orders.Count,$seenLines.Count,$timer.Elapsed.TotalSeconds)
+                $lastReportSeconds=$timer.Elapsed.TotalSeconds
+            }
             $rs.MoveNext()
         }
     } finally {if($null -ne $rs){$rs.Close()}}
     if(-not $orders.Count){throw 'Empty sales source; previous history retained.'}
+    Write-Host ('Sales: source read complete: {0:n0} rows, {1:n0} orders, {2:n0} lines in {3:n1}s. Preparing payload...' -f $rowCount,$orders.Count,$seenLines.Count,$timer.Elapsed.TotalSeconds)
     $payload=@($orders | ForEach-Object {
         $row=@{};foreach($key in $_.Keys){if($key -eq 'lines'){$row[$key]=@($_.lines.ToArray())}else{$row[$key]=$_[$key]}}
         $row
