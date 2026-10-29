@@ -35,3 +35,8 @@ jobs:
         run: |
           & "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File scripts/test-viewplan-orders-pagination.ps1
           if($LASTEXITCODE -ne 0){throw 'Order pagination regression failed'}
+      - name: Check Account sales source in server PowerShell
+        shell: pwsh
+        run: |
+          & "$env:WINDIR\SysWOW64\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File scripts/test-viewplan-sales-source.ps1
+          if($LASTEXITCODE -ne 0){throw 'Sales source regression failed'}

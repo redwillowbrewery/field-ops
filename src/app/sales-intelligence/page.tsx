@@ -8,14 +8,14 @@ type Visit={account_id:string;completed_at:string};
 type Container={account_id:string;off_site_days:number|null;lost:boolean};
 type Row={account:Account;score:number;reason:string;revenue:number;orders:number;lastOrder:string|null;typicalGap:number|null;daysSince:number|null;overdueBy:number|null;trend:number|null;lastVisit:string|null;containerCount:number;oldestContainer:number;bucket:"slipping"|"lapsed"|"growth"|"containers"|"watch"};
 type QueryResult={data:unknown[]|null;error:{message:string}|null};
-type QueryOps=PromiseLike<QueryResult>&{neq:(column:string,value:unknown)=>QueryOps;or:(filters:string)=>QueryOps;order:(column:string,options?:{ascending?:boolean})=>QueryOps;range:(from:number,to:number)=>QueryOps};
+type QueryOps=PromiseLike<QueryResult>&{eq:(column:string,value:unknown)=>QueryOps;neq:(column:string,value:unknown)=>QueryOps;or:(filters:string)=>QueryOps;order:(column:string,options?:{ascending?:boolean})=>QueryOps;range:(from:number,to:number)=>QueryOps};
 type ServerSupabaseClient=Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
 export default async function SalesIntelligencePage(){
   const supabase=await createSupabaseServerClient();
   const [accountRows,orderRows,visitRows,containerRows]=await Promise.all([
     fetchAll<Account>(supabase,"accounts","id,name,town,postcode,relationship_status,classification",q=>q.neq("relationship_status","closed").or("brewery_available.is.null,brewery_available.eq.true").order("name",{ascending:true})),
-    fetchAll<Order>(supabase,"sales_orders","account_id,order_date,net_amount",q=>q.order("order_date",{ascending:true})),
+    fetchAll<Order>(supabase,"sales_orders","account_id,order_date,net_amount",q=>q.eq("dispatched",true).order("order_date",{ascending:true})),
     fetchAll<Visit>(supabase,"visits","account_id,completed_at",q=>q.order("completed_at",{ascending:true})),
     fetchAll<Container>(supabase,"account_containers_snapshot","account_id,off_site_days,lost",q=>q.order("account_id",{ascending:true})),
   ]);
