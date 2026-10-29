@@ -26,8 +26,9 @@ once dispatched, the order and its product lines are immutable.**
   earlier imports cannot bootstrap; they start the bounded dispatched backfill.
 - `-Full` deliberately restarts a dispatched backfill; ordinary nightly runs do not.
 - Existing order IDs are adopted by exact order number then kept by stable ViewPlan
-  ID. Missing display numbers use the explicit label **VP-ID:<internal ID>**;
-  a blank legacy number does not discard the order or its products.
+  ID. Blank ViewPlan order numbers identify unconfirmed pre-orders and are
+  excluded in the source query before batching; history requires a numbered,
+  dispatched order. No synthetic order numbers are created.
 
 The source uses DAO `GetRows` buffers instead of individual COM calls per field.
 Logs report source rows/orders/lines, request sizes, committed cursors and progress.
@@ -102,7 +103,7 @@ successful freshness. A source cancellation after dispatch contradicts the state
 immutability rule and needs an explicit correction workflow, not absence inference.
 
 Automated tests cover source query predicates, overlap/keyset boundaries, bulk-read
-projection, blank-number fallback, checkpoint resumes and leases, empty increments,
+projection, pre-order exclusion, checkpoint resumes and leases, empty increments,
 bootstrap, dispatched-only policies/summaries, stable IDs, rollback and permissions.
 Windows CI checks x86 source fixtures and nightly runner sequencing. Actual Access
 execution and one scheduled overnight trigger remain field acceptance.

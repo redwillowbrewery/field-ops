@@ -64,12 +64,13 @@ $script:rows[0] | Add-Member NoteProperty manual_entry_text 'Special beer'
 $result=Get-ViewPlanSalesSnapshot $db
 if($result.payload[0].lines[0].product_name -ne 'Special beer'){throw 'Manual product name lost'}
 $script:rows[0].order_no_val=$null
-$result=Get-ViewPlanSalesSnapshot $db
-if($result.payload[0].order_no -ne 'VP-ID:42' -or $result.payload[0].lines[0].product_name -ne 'Special beer'){throw 'Missing display number blocked stable-ID history'}
+$rejected=$false
+try {Get-ViewPlanSalesSnapshot $db | Out-Null}catch{if($_.Exception.Message -match 'Unconfirmed pre-order'){$rejected=$true}}
+if(-not $rejected){throw 'Unconfirmed pre-order accepted into sales history'}
 $script:rows=@()
 $result=Get-ViewPlanSalesSnapshot -db $db -Since ([DateTime]'2026-10-27T12:00:00') -AfterOrderId 43 -Cursor 10
 if($result.payload.Count -ne 0 -or $result.has_more -or $result.next_cursor -ne 10){throw 'Empty incremental batch is not a valid completion'}
-if($script:lastSql -notmatch 'candidate.is_dispatched=True' -or $script:lastSql -notmatch '10/27/2026 11:55:00' -or $script:lastSql -notmatch 'candidate.order_id > 43' -or $script:lastSql -notmatch 'candidate.order_id > 10'){throw 'Checkpoint/overlap/new-ID scope is missing'}
+if($script:lastSql -notmatch 'candidate.order_no_val IS NOT NULL' -or $script:lastSql -notmatch 'candidate.is_dispatched=True' -or $script:lastSql -notmatch '10/27/2026 11:55:00' -or $script:lastSql -notmatch 'candidate.order_id > 43' -or $script:lastSql -notmatch 'candidate.order_id > 10'){throw 'Checkpoint/overlap/new-ID scope is missing'}
 $script:rows=@((SourceRow 42 1001 'Beer'))
 $result=Get-ViewPlanSalesSnapshot -db $db -BatchOrders 1
 if(-not $result.has_more -or $result.next_cursor -ne 42){throw 'Backfill batch did not provide a resumable cursor'}
@@ -79,4 +80,4 @@ foreach($scenario in @('duplicate','limit')){
     try {if($scenario -eq 'limit'){Get-ViewPlanSalesSnapshot $db 1 | Out-Null}else{Get-ViewPlanSalesSnapshot $db | Out-Null}}catch{$rejected=$true}
     if(-not $rejected){throw ('Invalid source accepted: '+$scenario)}
 }
-Write-Host 'Sales source fixtures passed: dispatched batches/products, bulk rows, stable IDs, blank-number fallback, checkpoint/overlap predicates, empty increments and fail-closed reads.'
+Write-Host 'Sales source fixtures passed: dispatched batches/products, bulk rows, stable IDs, pre-order exclusion, checkpoint/overlap predicates, empty increments and fail-closed reads.'

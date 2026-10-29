@@ -17,7 +17,7 @@ function Get-ViewPlanSalesSnapshot($db, [int]$MaxRows=250000, [Nullable[DateTime
     } finally {if($null -ne $clockSet){$clockSet.Close()}}
     if($null -ne $Since -and $through -lt [DateTime]$Since){throw 'ViewPlan clock is earlier than the saved checkpoint.'}
     $mode=if($null -eq $Since){'backfill'}else{'incremental'}
-    $scope='o.is_dispatched=True AND o.order_type IN (1,2) AND Nz(o.is_cancelled,False)<>True AND Nz(o.is_deleted,False)<>True'
+    $scope='o.is_dispatched=True AND o.order_no_val IS NOT NULL AND o.order_type IN (1,2) AND Nz(o.is_cancelled,False)<>True AND Nz(o.is_deleted,False)<>True'
     if($mode -eq 'incremental'){
         $from=([DateTime]$Since).AddMinutes(-$OverlapMinutes).ToString('MM/dd/yyyy HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture)
         $scope+=" AND (o.lud >= #$from# OR o.updated_date >= #$from# OR o.dispatched_date >= #$from# OR o.order_id > $AfterOrderId)"
@@ -71,7 +71,7 @@ ORDER BY o.order_id, i.order_item_id
         throw 'Invalid source Boolean.'
     }
     $orders=New-Object System.Collections.Generic.List[object]
-    $seenLines=@{};$current=$null;$rowCount=0;$rs=$null;$missingNumbers=0
+    $seenLines=@{};$current=$null;$rowCount=0;$rs=$null
     $lastReportSeconds=0
     try {
         Write-Host ('Sales: opening the '+$mode+' dispatched ViewPlan order/line query (read only)...')
@@ -89,10 +89,10 @@ ORDER BY o.order_id, i.order_item_id
             if($null -eq $current -or $current.source_order_id -ne $id){
                 $number=Value $rs 'order_no_val'
                 $eligible=((Value $rs 'order_type') -in @(1,2) -and -not (Flag (Value $rs 'order_cancelled')) -and -not (Flag (Value $rs 'order_deleted')))
-                if($null -eq $number){$missingNumbers++}
+                if($null -eq $number){throw 'Unconfirmed pre-order returned by history source.'}
                 $current=[ordered]@{
                     source_order_id=[long]$id
-                    order_no=if($null -eq $number){'VP-ID:'+ $id}else{([decimal]$number).ToString('0.################',[Globalization.CultureInfo]::InvariantCulture)}
+                    order_no=([decimal]$number).ToString('0.################',[Globalization.CultureInfo]::InvariantCulture)
                     customer_id=Value $rs 'customer_id'
                     eligible=$eligible
                     order_date=DateOnly (Value $rs 'order_date')
@@ -140,7 +140,6 @@ ORDER BY o.order_id, i.order_item_id
         }
     } finally {if($null -ne $rs){$rs.Close()}}
     Write-Host ('Sales: source read complete: {0:n0} rows, {1:n0} orders, {2:n0} lines in {3:n1}s. Preparing payload...' -f $rowCount,$orders.Count,$seenLines.Count,$timer.Elapsed.TotalSeconds)
-    if($missingNumbers){Write-Warning ("Sales: $missingNumbers order(s) have no displayed number; labelled VP-ID:<internal ID> without dropping their products.")}
     $payload=@($orders | ForEach-Object {
         $row=@{};foreach($key in $_.Keys){if($key -eq 'lines'){$row[$key]=@($_.lines.ToArray())}else{$row[$key]=$_[$key]}}
         $row
